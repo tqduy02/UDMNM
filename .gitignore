@@ -1,0 +1,27 @@
+# 👉 Giữ lại toàn bộ plugins và themes
+!plugins/
+!plugins/**
+
+!themes/
+!themes/**
+
+# 👉 Bỏ qua những thư mục nặng/tạm
+languages/
+uploads/
+upgrade/
+cache/
+mu-plugins/
+wflogs/
+ai1wm-backups/
+backup*/
+backups*/
+
+# 👉 Bỏ qua các file tạm/IDE
+.DS_Store
+Thumbs.db
+*.log
+
+# 👉 Nếu có file/thu muc build tạm trong plugin/theme tự phát triển thì thêm vào dưới
+# ví dụ:
+# my-custom-plugin/.env
+# my-custom-plugin/storage/
