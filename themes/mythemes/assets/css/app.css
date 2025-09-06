@@ -1,0 +1,653 @@
+
+
+/* Navbar chính */
+.navbar{
+  background:#fff;
+  min-height:80px;
+  padding-top:20px;
+  padding-bottom:20px;
+  transition:background-color .3s ease;
+  z-index:1030;
+}
+
+/* Logo */
+.navbar-brand img{
+  max-height:48px;
+  height:auto; width:auto;
+}
+
+/* Link menu cấp 1 */
+.navbar .nav-link{
+  color:#111;
+  font-weight:600;
+  font-size:15px;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  padding:8px 12px;
+  position:relative;
+  text-decoration:none;
+  transition:color .3s, border-color .3s;
+}
+
+/* Hover + active */
+.navbar .nav-link:hover,
+.navbar .nav-item.current-menu-item > .nav-link,
+.navbar .nav-item.current_page_item > .nav-link,
+.navbar .nav-item.current-menu-ancestor > .nav-link{
+  color:#f4d24f;
+}
+
+/* Underline hiệu ứng trái -> phải */
+.navbar .nav-link::after{
+  content:"";
+  position:absolute;
+  bottom:-2px; left:0;
+  width:0%; height:2px;
+  background:#f4d24f;
+  transition:width .3s ease;
+}
+.navbar .nav-link:hover::after,
+.navbar .nav-item.current-menu-item > .nav-link::after,
+.navbar .nav-item.current_page_item > .nav-link::after,
+.navbar .nav-item.current-menu-ancestor > .nav-link::after{
+  width:100%;
+}
+
+/* Toggler (hamburger) */
+.navbar-toggler{ border:none; font-size:22px; }
+.navbar-toggler:focus{ box-shadow:none; }
+
+/* Reset danh sách và xử lý có submenu */
+.navbar-nav,
+.navbar-nav .sub-menu{
+  list-style:none;
+  margin:0;
+  padding-left:0;
+}
+.navbar-nav .menu-item-has-children{ position:relative; }
+/* Ẩn mũi tên submenu */
+.navbar-nav .menu-item-has-children > .nav-link::after{
+  content:none;
+}
+
+/* ===== DESKTOP (>= 992px): submenu dropdown ===== */
+@media (min-width: 992px){
+  .navbar-nav{
+    gap:28px;
+    align-items:center;
+  }
+
+  .navbar-nav .sub-menu{
+    position:absolute;
+    left:0; top:100%;
+    min-width:220px;
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:12px;
+    padding:8px 0;
+    box-shadow:0 8px 30px rgba(0,0,0,.08);
+    display:none;          /* ẩn mặc định */
+    z-index:1000;
+  }
+
+  /* Hiện submenu khi hover/focus */
+  .navbar-nav li:hover > .sub-menu,
+  .navbar-nav li:focus-within > .sub-menu{
+    display:block;
+  }
+
+  /* Link trong submenu */
+  .navbar-nav .sub-menu .nav-link{
+    display:block;
+    padding:8px 16px;
+    font-weight:600;
+    color:#111;
+    text-transform:none;   /* không uppercase submenu */
+    letter-spacing:0;
+  }
+  .navbar-nav .sub-menu .nav-link:hover{
+    background:#f7f7f7;
+    color:#111;
+  }
+}
+
+/* ===== MOBILE (<= 991.98px) ===== */
+@media (max-width: 991.98px){
+  /* Panel menu trượt từ phải sang khi mở */
+  .navbar-collapse{
+    padding-top:.5rem;
+    transform:translateX(100%);
+    transition:transform .3s ease;
+  }
+  .navbar-collapse.show{ transform:translateX(0); }
+
+  /* Menu căn hết sang phải */
+  .navbar-nav{
+    align-items:flex-end;
+    text-align:right;
+    width:100%;
+    gap:14px;
+  }
+
+  /* Link dễ bấm hơn */
+  .navbar .nav-link{ padding:10px 0; }
+
+  /* Ẩn toàn bộ submenu trên mobile */
+  .navbar-nav .sub-menu{
+    display:none !important;
+    position:static;
+    border:0; border-radius:0;
+    box-shadow:none;
+    padding:0;
+    width:100%;
+  }
+
+  /* Ẩn dải icon social flex-row (nếu có) */
+  .navbar-nav.flex-row{ display:none !important; }
+
+  /* Gạch chân hover ở mobile */
+  .navbar .nav-link::after{ bottom:-3px; }
+}
+
+
+
+/* ===== HERO SLIDER ===== */
+.hero-slider-wrap {
+  position: relative;
+  width: 100%;
+  height: 80vh;   
+  overflow: hidden;
+}
+
+/* Đảm bảo Swiper chiếm đủ chiều cao */
+.hero-swiper,
+.hero-swiper .swiper-wrapper,
+.hero-swiper .swiper-slide {
+  width: 100%;
+  height: 100%;
+}
+
+/* Hàng nội dung căn giữa theo trục dọc */
+.hero-slide {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Ảnh tròn phải */
+.hero-circle {
+  width: min(68vh, 640px);
+  aspect-ratio: 1/1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f3f3f3;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+/* Ảnh trong thumbnail fill tròn */
+.hero-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Tiêu đề lớn */
+.hero-slide h2 { 
+  font-size: clamp(28px, 4.2vw, 56px); 
+  margin-bottom: 0.5rem;
+}
+
+/* Hiệu ứng hover gạch chân chạy trái→phải */
+.hero-slide h2 a {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+.hero-slide h2 a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 0;
+  height: 2px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+.hero-slide h2 a:hover::after { width: 100%; }
+
+/* Meta */
+.hero-slide p.text-muted { margin-bottom: 0; }
+
+/* Category badge */
+.hero-slide .badge {
+  font-size: calc(1rem + 2px);
+  transition: background-color 0.3s, color 0.3s;
+}
+.hero-slide .badge:hover {
+  background: #d4a373;
+  color: #fff;
+}
+
+/* Nút prev/next */
+.hero-nav {
+  position: absolute;
+  right: 4vw;
+  bottom: 4vh;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: #f4f4f4;
+  color: #222;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  z-index: 5;
+}
+.hero-next { right: calc(4vw + 60px); }
+.hero-prev { right: 4vw; }
+.hero-nav:hover { background: #eee; }
+
+/* Desktop */
+@media (min-width: 992px) {
+  .hero-slide { padding-inline: 6vw; }
+}
+
+/* ===== Mobile ===== */
+/* ==== FIX MOBILE: tạo thêm không gian cho tiêu đề + nút ==== */
+@media (max-width: 991.98px) {
+  /* Đừng khóa chiều cao ở mobile */
+  .hero-slider-wrap {
+    height: auto;        /* bỏ 80vh trên mobile */
+    min-height: 80vh;    /* vẫn đảm bảo tối thiểu */
+  }
+  .hero-swiper,
+  .hero-swiper .swiper-wrapper,
+  .hero-swiper .swiper-slide {
+    height: auto;        /* cho phép nội dung cao hơn */
+  }
+
+  /* Tạo khoảng trống thực sự bên trong slide */
+  .hero-slide {
+    flex-direction: column;
+    text-align: center;
+    padding: 0 16px 100px;  
+    align-items: center;
+  }
+
+  /* Ảnh + khoảng cách dưới ảnh */
+  .hero-circle {
+    width: min(58vw, 380px);
+    margin: 24px auto 24px;
+  }
+
+  /* Nếu muốn thêm khoảng trống dưới KHỐI TEXT: target đúng cột text */
+  .hero-slide .col-lg-6.order-2.order-lg-1 {
+    margin-bottom: 4px;   /* tùy chỉnh thêm, giờ sẽ nhìn thấy vì không còn bị cắt */
+  }
+
+  /* Đặt lại vị trí nút cho gọn */
+  .hero-nav {
+    right: 20px;
+    bottom: 20px;          /* nằm trên phần padding-bottom của slide */
+  }
+  .hero-next { right: 80px; }
+}
+
+
+
+
+/* ===== Category strip (Flex, luôn căn giữa) ===== */
+.cat-strip { background:#f7f7f7; }
+
+.cat-row{
+  display:flex;
+  justify-content:center;   /* căn giữa cả dải */
+  align-items:flex-start;
+  gap:28px;
+  flex-wrap:wrap;           
+  margin:0 auto;
+}
+
+/* Item cố định kích thước */
+.cat-item{ text-align:center; color:#333; width:140px; }
+.cat-thumb{
+  width:100%; height:140px; /* = width của item */
+  border-radius:50%; overflow:hidden; background:#eee;
+  display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.06);
+}
+.cat-thumb img{ width:100%; height:100%; object-fit:cover; border-radius:50%; transition:transform .3s; }
+.cat-item:hover .cat-thumb img{ transform:scale(1.05); }
+.cat-name{ font-size:15px; margin-top:.5rem; color:#333; }
+
+/* ===== Desktop: luôn 1 hàng (8 ô) ===== */
+/* ≥1400px (container-xxl ≈ 1320px): 8*140 + 7*28 = 1316px -> OK */
+@media (min-width: 1400px){
+  .cat-row{ flex-wrap: nowrap; gap:28px; }
+  .cat-item{ width:140px; }
+  .cat-thumb{ height:140px; }
+}
+
+/* 1200–1399px (container-xl ≈ 1140px): dùng 8*120 + 7*20 = 1100px -> 1 hàng */
+@media (min-width: 1200px) and (max-width: 1399.98px){
+  .cat-row{ flex-wrap: nowrap; gap:20px; }
+  .cat-item{ width:120px; }
+  .cat-thumb{ height:120px; }
+}
+
+/* 992–1199px (container-lg ≈ 960px): dùng 8*110 + 7*10 = 950px -> 1 hàng */
+@media (min-width: 992px) and (max-width: 1199.98px){
+  .cat-row{ flex-wrap: nowrap; gap:10px; }
+  .cat-item{ width:110px; }
+  .cat-thumb{ height:110px; }
+}
+
+/* ===== Tablet/Mobile: cho phép xuống hàng và thu nhỏ ===== */
+@media (max-width: 991.98px){
+  .cat-row{ gap:22px; }                 /* wrap theo chiều ngang */
+  .cat-item{ width:110px; }
+  .cat-thumb{ height:110px; }
+}
+@media (max-width: 575.98px){
+  .cat-row{ gap:18px; }
+  .cat-item{ width:90px; }
+  .cat-thumb{ height:90px; }
+  .cat-name{ font-size:14px; }
+}
+
+/* ===== Post list 2 cột ===== */
+.posts-list{
+  padding-top: 80px !important;
+}
+
+.post-card2{
+  border:1px solid #eee;
+  border-radius:24px;
+  background:#fff;
+  padding: 24px 32px;    /* lề trong thoáng hơn */
+}
+
+/* Ảnh tròn */
+.thumb-round{
+  width:200px; height:200px;
+  border-radius:50%;
+  overflow:hidden;
+  background:#f1f1f1;
+  transition: transform .4s ease;
+}
+.thumb-round img{
+  width:100%; height:100%;
+  object-fit:cover;
+  border-radius:50%;
+  transition: transform .4s ease;
+}
+.thumb-round:hover img{
+  transform: scale(1.08);
+}
+
+/* Badge */
+.badge-cat{
+  display:inline-flex; align-items:center; gap:8px;
+  background:#ffe878; color:#111;
+  padding:8px 14px; border-radius:999px;
+  font-weight:700; font-size:14px;
+}
+
+/* Tiêu đề + hiệu ứng underline */
+.post-link{
+  position: relative;
+  color:#111; text-decoration:none;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.post-link::after{
+  content:"";
+  position:absolute;
+  left:0; bottom:-4px;
+  width:0%;
+  height:2px;
+  background:#111;
+  transition: width .4s ease;
+}
+.post-link:hover::after{ width:100%; }
+
+.post-meta{ color:#8a8a8a; font-size:14px; }
+
+/* Pagination */
+.pagination{
+  display:flex; justify-content:center; gap:10px; padding-left:0;
+  list-style:none;
+}
+.pagination li a, .pagination li span{
+  display:inline-block; padding:10px 14px; border-radius:10px;
+  border:1px solid #eee; color:#111; text-decoration:none;
+}
+.pagination li .current{
+  background:#111; color:#fff; border-color:#111;
+}
+
+/* Responsive */
+@media (max-width: 991.98px){
+  .thumb-round{ width:160px; height:160px; }
+}
+@media (max-width: 575.98px){
+  .thumb-round{ width:130px; height:130px; }
+  .post-link{ font-size:1.1rem; }
+}
+
+/* ===== Featured Post ===== */
+.featured-post{
+  margin-top: 30px;
+  background: #f3f3f3;
+  overflow-x: clip;          /* ngăn tràn ngang do transform */
+}
+
+/* Ảnh tròn (chống tràn) */
+.featured-thumb{
+  /* Không cố định px cứng; responsive theo viewport */
+  width: clamp(260px, 50vw, 550px);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background:#f7f7f7;
+  transition: transform .4s ease;
+  box-sizing: border-box;
+  margin-inline: auto;       /* luôn căn giữa khi cột nhỏ */
+  display: block;
+}
+.featured-thumb img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  border-radius:50%;
+  transition: transform .5s ease;
+}
+.featured-thumb:hover img{
+  transform: scale(1.08);    /* zoom nhẹ khi hover */
+}
+
+/* Tiêu đề */
+.featured-title{
+  font-size: clamp(1.3rem, 2.5vw, 2rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.featured-link{
+  position: relative;
+  color:#111;
+  text-decoration:none;
+}
+
+/* Underline animation trái -> phải */
+.featured-link::after{
+  content:"";
+  position:absolute;
+  bottom:-6px; left:0;
+  width:0%;
+  height:3px;
+  background:#111;
+  transition: width .4s ease;
+}
+.featured-link:hover::after{ width:100%; }
+
+/* Responsive tinh chỉnh */
+@media (max-width: 991.98px){
+  .featured-thumb{
+    width: clamp(240px, 70vw, 420px);
+    margin-top: 2rem;
+  }
+}
+@media (max-width: 575.98px){
+  .featured-post{ padding-left: 12px; padding-right: 12px; } /* đệm 2 bên */
+  .featured-thumb{
+    width: clamp(220px, 90vw, 360px);
+  }
+}
+
+
+/* ===== Footer ===== */
+.site-footer {
+  background: #000;
+  color: #fff;
+}
+.site-footer .display-6 {
+  font-size: 2.1rem;
+  line-height: 1.3;
+}
+.site-footer p {
+  margin-bottom: 0;
+}
+
+/* Newsletter wrapper */
+.newsletter-wrap {
+  max-width: 780px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ===== Contact Form 7 Newsletter ===== */
+.newsletter-form {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  max-width: 780px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 0; /* tránh khoảng trống thừa khi flex */
+}
+
+/* Input email */
+.newsletter-form .wpcf7-form-control.wpcf7-email {
+  flex: 1;
+  background: #0e0e0e;
+  border: 1px solid #262626;
+  color: #fff;
+  padding: 0.95rem 1.25rem;
+  border-radius: 2rem 0 0 2rem;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0; /* quan trọng khi dùng flex để không overflow */
+}
+.newsletter-form .wpcf7-form-control.wpcf7-email::placeholder {
+  color: #8f8f8f;
+}
+
+/* Button Subscribe */
+.newsletter-form .wpcf7-submit {
+  background: #f4d24f;
+  color: #111;
+  border: none;
+  padding: 0.95rem 1.5rem;
+  font-weight: 600;
+  border-radius: 0 2rem 2rem 0;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap; /* tránh chữ bị xuống dòng */
+  box-sizing: border-box;
+}
+.newsletter-form .wpcf7-submit:hover {
+  background: #ffd84f;
+}
+
+/* Ẩn spinner mặc định của CF7 */
+.wpcf7-spinner {
+  display: none !important;
+}
+
+/* Reset margin mặc định của CF7 */
+.wpcf7 form,
+.wpcf7 form p {
+  margin: 0;
+}
+
+/* Footer bottom: luôn sát đáy footer, line mảnh */
+.footer-bottom { 
+  font-size: 0.875rem; 
+}
+.footer-bottom .container {
+  max-width: 1320px; /* đồng bộ với container-xxl trên site */
+}
+
+/* Tối ưu khoảng cách mobile */
+@media (max-width: 575.98px){
+  .footer-bottom .container { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ===== Responsive Mobile (≤575px) ===== */
+@media (max-width: 575.98px) {
+  /* Thêm padding 2 bên để input không dính sát mép màn hình */
+  .newsletter-wrap {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .newsletter-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .6rem;
+  }
+
+  .newsletter-form .wpcf7-form-control.wpcf7-email {
+    width: 100%;
+    flex: 0 0 auto; /* bỏ flex:1 để không vượt quá */
+    margin: 0;
+    border-radius: 2rem;
+  }
+
+  .newsletter-form .wpcf7-submit {
+    width: 100%;
+    border-radius: 2rem;
+  }
+}
+
+
+/* ============================================== */
+
+/* Grid: hover ảnh */
+.blog-card .blog-thumb-img { transition: transform .5s ease; }
+.blog-card a.ratio:hover .blog-thumb-img { transform: scale(1.06); }
+
+/* Underline chạy trái -> phải cho link tiêu đề */
+.link-underline-anim { position:relative; color:#111; text-decoration:none; }
+.link-underline-anim::after{
+  content:""; position:absolute; left:0; bottom:-4px; height:2px; width:0;
+  background:#111; transition: width .35s ease;
+}
+.link-underline-anim:hover::after{ width:100%; }
+
+/* List dùng lại card & thumb ở home */
+.post-card2{ padding:20px 24px; border:1px solid #eee; }
+.thumb-round{ width:180px; height:180px; }
+.thumb-round img{ transition: transform .4s ease; }
+.thumb-round:hover img{ transform: scale(1.08); }
+
+/* Pagination chung */
+.pagination{ display:flex; justify-content:center; gap:10px; padding-left:0; list-style:none; }
+.pagination li a, .pagination li span{ display:inline-block; padding:10px 14px; border-radius:10px; border:1px solid #eee; color:#111; text-decoration:none; }
+.pagination li .current{ background:#111; color:#fff; border-color:#111; }

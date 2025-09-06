@@ -1,0 +1,44 @@
+/*
+Theme Name: MyThemes
+Theme URI: http://localhost/wp_blog
+Author: Duy Tran
+Author URI: http://localhost
+Description: Custom WordPress theme skeleton cho đồ án.
+Version: 1.0.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+Text Domain: mythemes
+Tags: blog, minimal, clean
+*/
+
+
+/* Reset cơ bản + typography tối giản */
+:root{ --container:1100px; --accent:#f4d24f; --text:#111; --muted:#787878; }
+*{ box-sizing:border-box; }
+body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--text); }
+.container{ width:min(96%, var(--container)); margin:auto; }
+
+
+/* Header */
+.site-header{ background:#fff; border-bottom:1px solid #f1f1f1; position:sticky; top:0; z-index:50; }
+.nav-wrap{ display:flex; align-items:center; justify-content:space-between; gap:24px; padding:16px 0; }
+.logo{ font-weight:800; font-size:24px; letter-spacing:.2px; color:#111; text-decoration:none; display:flex; align-items:center; gap:6px; }
+.logo .dot{ color:var(--accent); }
+.nav{ display:flex; gap:28px; list-style:none; margin:0; padding:0; }
+.nav a{ color:#111; text-decoration:none; font-weight:600; }
+.nav a:hover, .nav .current-menu-item>a{ text-decoration:underline; text-underline-offset:6px; }
+.social{ display:flex; gap:16px; list-style:none; margin:0; padding:0; }
+.social a{ color:#888; text-decoration:none; }
+
+
+/* Footer */
+.site-footer{ background:#000; color:#fff; padding:40px 0; margin-top:60px; }
+.footer-copy{ opacity:.8; }
+
+
+/* Bố cục chung */
+main{ padding:48px 0; }
+.post-card{ display:grid; grid-template-columns:140px 1fr; gap:18px; padding:22px; border:1px solid #eee; border-radius:16px; }
+.post-card img{ width:140px; height:140px; object-fit:cover; border-radius:999px; }
+.badge{ background:var(--accent); color:#111; border-radius:999px; padding:6px 12px; font-weight:600; font-size:12px; display:inline-flex; align-items:center; gap:6px; }
+h1,h2,h3{ line-height:1.25; }
