@@ -3,77 +3,90 @@
 if (!defined('ABSPATH')) exit;
 get_header();
 
-// Phân trang
+/** Lấy category từ ACF (hỗ trợ nhiều giá trị) */
+$selected = get_field('blog_category'); // term object | id | array | null
+$cat_ids = []; $cat_names = [];
+if ($selected){
+  $selected = is_array($selected) ? $selected : [$selected];
+  foreach ($selected as $item){
+    if (is_object($item) && isset($item->term_id)){
+      $cat_ids[] = (int)$item->term_id;
+      $cat_names[] = $item->name;
+    } elseif (is_numeric($item)){
+      $t = get_term((int)$item, 'category');
+      if ($t && !is_wp_error($t)){ $cat_ids[] = (int)$t->term_id; $cat_names[] = $t->name; }
+    }
+  }
+}
+if (!$cat_ids){
+  $fb = get_category_by_slug('fashion'); // fallback tùy bạn
+  if ($fb){ $cat_ids[] = (int)$fb->term_id; $cat_names[] = $fb->name; }
+}
+
+$hero_title = (count($cat_names) > 1) ? 'Categories : '.esc_html(implode(', ', $cat_names))
+                                      : 'Category : '.esc_html(reset($cat_names));
+$intro = get_field('category_intro', 'category_'.(int)$cat_ids[0]);
+
 $paged = max(1, get_query_var('paged') ?: get_query_var('page'));
-
-$q = new WP_Query([
-  'post_type'           => 'post',
-  'posts_per_page'      => 9,
-  'paged'               => $paged,
+$args = [
+  'post_type' => 'post',
+  'posts_per_page' => 6,
+  'paged' => $paged,
   'ignore_sticky_posts' => true,
-]);
+];
+if ($cat_ids) $args['category__in'] = $cat_ids;
 
+$q = new WP_Query($args);
 ?>
-<section class="blog-page py-5">
+
+<section class="archive-hero py-5 py-lg-6 border-bottom text-center">
   <div class="container-xxl">
-
-    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
-      <h1 class="h3 m-0"><?php echo esc_html(get_the_title()); ?></h1>
-      <!-- Dropdown dẫn qua 2 trang riêng -->
-      <div class="d-flex align-items-center gap-2">
-        <label class="small text-muted">View:</label>
-        <select class="form-select form-select-sm" style="width:180px;" onchange="location.href=this.value;">
-          <option value="<?php echo esc_url(get_permalink()); ?>" selected>Blog Grid</option>
-          <option value="<?php echo esc_url(get_permalink(get_page_by_path('blog-list'))); ?>">Blog List</option>
-        </select>
-      </div>
-    </div>
-
-    <?php if ($q->have_posts()): ?>
-      <div class="row g-4 blog-grid">
-        <?php while($q->have_posts()): $q->the_post();
-          $cat = get_the_category(); $cat_name = $cat ? $cat[0]->name : 'Blog'; ?>
-          <div class="col-12 col-md-6 col-lg-4">
-            <article class="card h-100 border-0 shadow-sm blog-card">
-              <a class="ratio ratio-1x1 overflow-hidden d-block" href="<?php the_permalink(); ?>">
-                <?php if (has_post_thumbnail()): ?>
-                  <?php the_post_thumbnail('large', ['class'=>'w-100 h-100 object-fit-cover blog-thumb-img']); ?>
-                <?php else: ?>
-                  <img class="w-100 h-100 object-fit-cover blog-thumb-img" src="https://picsum.photos/600/600?random=<?php echo get_the_ID(); ?>" alt="<?php the_title_attribute(); ?>">
-                <?php endif; ?>
-              </a>
-              <div class="card-body">
-                <span class="badge-cat mb-2 d-inline-flex align-items-center gap-2">
-                  <i class="fa-regular fa-circle"></i><?php echo esc_html($cat_name); ?>
-                </span>
-                <h3 class="h5 fw-bold mb-2">
-                  <a class="link-underline-anim" href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
-                </h3>
-                <div class="small text-muted">
-                  <?php the_author(); ?> • <?php echo human_time_diff(get_the_time('U'), current_time('timestamp')); ?> ago
-                </div>
-              </div>
-            </article>
-          </div>
-        <?php endwhile; ?>
-      </div>
-
-      <div class="mt-4">
-        <?php
-          echo paginate_links([
-            'total'     => $q->max_num_pages,
-            'current'   => $paged,
-            'prev_text' => '&laquo;',
-            'next_text' => '&raquo;',
-            'type'      => 'list',
-          ]);
-        ?>
-      </div>
-
-    <?php else: ?>
-      <p>Chưa có bài viết.</p>
-    <?php endif; wp_reset_postdata(); ?>
-
+    <h1 class="display-5 fw-bold mb-2"><?php echo $hero_title; ?></h1>
+    <nav class="crumbs small mb-3" aria-label="breadcrumb">
+      <a href="<?php echo esc_url(home_url('/')); ?>" class="text-muted text-decoration-none">Home</a>
+      <span class="mx-2 text-muted">›</span><span class="text-muted">Blog</span>
+    </nav>
+    <?php if ($intro): ?><div class="lead text-muted max-w-800 mx-auto"><?php echo wp_kses_post($intro); ?></div><?php endif; ?>
   </div>
 </section>
+
+<section class="blog-grid py-5">
+  <div class="container-xxl">
+    <div id="gridList" class="row g-4">
+      <?php if ($q->have_posts()):
+        while($q->have_posts()): $q->the_post();
+          $cat = get_the_category(); $cat_show = $cat ? $cat[0]->name : 'Blog'; ?>
+          <div class="col-12 col-md-6 col-lg-4">
+            <article class="grid-card border rounded-4 h-100 text-center p-4">
+              <a class="grid-thumb d-block mx-auto mb-3" href="<?php the_permalink(); ?>">
+                <?php if (has_post_thumbnail()):
+                  the_post_thumbnail('large', ['class'=>'w-100 h-100 object-fit-cover rounded-circle']);
+                else: ?>
+                  <img class="w-100 h-100 object-fit-cover rounded-circle" src="https://picsum.photos/600/600?random=<?php echo get_the_ID(); ?>" alt="<?php the_title_attribute(); ?>">
+                <?php endif; ?>
+              </a>
+              <span class="badge-cat mb-2"><i class="fa-regular fa-circle me-2"></i><?php echo esc_html($cat_show); ?></span>
+              <h3 class="h4 fw-bold mb-2"><a class="post-link" href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
+              <div class="post-meta small text-muted"><?php the_author(); ?> • <?php echo human_time_diff(get_the_time('U'), current_time('timestamp')); ?> ago</div>
+            </article>
+          </div>
+        <?php endwhile;
+      else:
+        echo '<p>Chưa có bài viết.</p>';
+      endif; wp_reset_postdata(); ?>
+    </div>
+
+    <?php if ($q->max_num_pages > 1): ?>
+      <div class="text-center mt-4">
+        <button id="loadMoreGrid"
+                class="btn btn-dark px-4 py-2"
+                data-current="<?php echo esc_attr($paged); ?>"
+                data-max="<?php echo esc_attr(max(1,$q->max_num_pages)); ?>">
+          More posts
+        </button>
+      </div>
+    <?php endif; ?>
+  </div>
+</section>
+
 <?php get_footer(); ?>

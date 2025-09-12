@@ -148,19 +148,6 @@
         </div>
       <?php endwhile; ?>
 
-      <!-- Pagination -->
-      <div class="col-12 mt-3">
-        <?php
-          echo paginate_links([
-            'total'   => $q->max_num_pages,
-            'current' => $paged,
-            'prev_text' => '&laquo;',
-            'next_text' => '&raquo;',
-            'type'    => 'list',
-          ]);
-        ?>
-      </div>
-
       <?php
         wp_reset_postdata();
       else:

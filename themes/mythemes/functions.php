@@ -84,3 +84,195 @@ add_action('customize_register', function (WP_Customize_Manager $wp_customize) {
   ]);
 });
 
+// Enqueue JS chỉ cho Blog List
+add_action('wp_enqueue_scripts', function () {
+  if (is_page_template('page-blog-list.php')) {
+    // Lấy cat_ids từ ACF
+    $selected = get_field('blog_category', get_the_ID());
+    $cat_ids = [];
+    if ($selected) {
+      $selected = is_array($selected) ? $selected : [$selected];
+      foreach ($selected as $item) {
+        if (is_object($item) && isset($item->term_id)) $cat_ids[] = (int) $item->term_id;
+        elseif (is_numeric($item)) $cat_ids[] = (int) $item;
+      }
+    }
+    if (!$cat_ids) {
+      $fb = get_category_by_slug('plants');
+      if ($fb) $cat_ids[] = (int) $fb->term_id;
+    }
+
+    wp_enqueue_script(
+      'mythemes-loadmore',
+      get_template_directory_uri() . '/assets/js/loadmore.js',
+      ['jquery'], '1.3', true
+    );
+
+    wp_localize_script('mythemes-loadmore', 'MYT_LOADMORE', [
+      'ajaxurl' => admin_url('admin-ajax.php'),
+      'nonce'   => wp_create_nonce('myt_load_more'),
+      'cats'    => array_map('intval', $cat_ids), // mảng ID
+    ]);
+  }
+});
+
+
+// AJAX handler
+add_action('wp_ajax_myt_load_more', 'myt_load_more_cb');
+add_action('wp_ajax_nopriv_myt_load_more', 'myt_load_more_cb');
+
+function myt_load_more_cb() {
+  check_ajax_referer('myt_load_more', 'nonce');
+
+  $paged = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
+
+  // Chuẩn hoá cats
+  $cats = [];
+  if (isset($_POST['cats'])) {
+    if (is_array($_POST['cats'])) {
+      $cats = array_map('intval', $_POST['cats']);
+    } else {
+      $raw = stripslashes((string)$_POST['cats']);
+      $decoded = json_decode($raw, true);
+      if (is_array($decoded)) {
+        $cats = array_map('intval', $decoded);
+      } else {
+        $cats = array_filter(array_map('intval', explode(',', $raw)));
+      }
+    }
+  }
+
+  $args = [
+    'post_type'           => 'post',
+    'posts_per_page'      => 6,
+    'paged'               => $paged,
+    'ignore_sticky_posts' => true,
+    'no_found_rows'       => true, // tối ưu cho Ajax
+  ];
+  if ($cats) $args['category__in'] = $cats;
+
+  $q = new WP_Query($args);
+
+  ob_start();
+  if ($q->have_posts()):
+    while ($q->have_posts()): $q->the_post();
+      $cat = get_the_category(); $cat_show = $cat ? $cat[0]->name : 'Blog'; ?>
+      <div class="col-md-6 post-item">
+        <article class="post-card2 border rounded-4">
+          <div class="row g-0 align-items-center">
+            <div class="col-auto p-4">
+              <a class="thumb-round d-block" href="<?php the_permalink(); ?>">
+                <?php if (has_post_thumbnail()):
+                  the_post_thumbnail('medium', ['class'=>'w-100 h-100 object-fit-cover rounded-circle']);
+                else: ?>
+                  <img class="w-100 h-100 object-fit-cover rounded-circle" src="https://picsum.photos/400/400?random=<?php echo get_the_ID(); ?>" alt="<?php the_title_attribute(); ?>">
+                <?php endif; ?>
+              </a>
+            </div>
+            <div class="col p-4">
+              <span class="badge-cat"><i class="fa-regular fa-circle me-2"></i><?php echo esc_html($cat_show); ?></span>
+              <h3 class="h4 fw-bold mt-3 mb-2">
+                <a class="post-link" href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+              </h3>
+              <div class="post-meta small text-muted">
+                <?php the_author(); ?> • <?php echo human_time_diff(get_the_time('U'), current_time('timestamp')); ?> ago
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    <?php endwhile;
+  endif; wp_reset_postdata();
+
+  wp_send_json_success(['html' => ob_get_clean()]);
+}
+
+// Enqueue cho Blog Grid
+add_action('wp_enqueue_scripts', function () {
+  if (is_page_template('page-blog-grid.php')) {
+
+    // Lấy cat_ids từ ACF của page hiện tại
+    $selected = get_field('blog_category', get_the_ID());
+    $cat_ids = [];
+    if ($selected){
+      $selected = is_array($selected) ? $selected : [$selected];
+      foreach ($selected as $item){
+        if (is_object($item) && isset($item->term_id)) $cat_ids[] = (int)$item->term_id;
+        elseif (is_numeric($item)) $cat_ids[] = (int)$item;
+      }
+    }
+    if (!$cat_ids){
+      $fb = get_category_by_slug('fashion'); // fallback tùy bạn
+      if ($fb) $cat_ids[] = (int)$fb->term_id;
+    }
+
+    wp_enqueue_script(
+      'mythemes-loadmore-grid',
+      get_template_directory_uri().'/assets/js/loadmore-grid.js',
+      ['jquery'], '1.0', true
+    );
+    wp_localize_script('mythemes-loadmore-grid', 'MYT_GRID', [
+      'ajaxurl' => admin_url('admin-ajax.php'),
+      'nonce'   => wp_create_nonce('myt_load_more_grid'),
+      'cats'    => array_map('intval', $cat_ids),
+    ]);
+  }
+});
+
+// AJAX handler cho Grid
+add_action('wp_ajax_myt_load_more_grid', 'myt_load_more_grid_cb');
+add_action('wp_ajax_nopriv_myt_load_more_grid', 'myt_load_more_grid_cb');
+
+function myt_load_more_grid_cb(){
+  check_ajax_referer('myt_load_more_grid', 'nonce');
+
+  $paged = isset($_POST['page']) ? max(1, (int)$_POST['page']) : 1;
+
+  // Chuẩn hoá cats
+  $cats = [];
+  if (isset($_POST['cats'])){
+    if (is_array($_POST['cats'])){
+      $cats = array_map('intval', $_POST['cats']);
+    } else {
+      $raw = stripslashes((string)$_POST['cats']);
+      $json = json_decode($raw, true);
+      $cats = is_array($json) ? array_map('intval',$json)
+                              : array_filter(array_map('intval', explode(',', $raw)));
+    }
+  }
+
+  $args = [
+    'post_type' => 'post',
+    'posts_per_page' => 6,
+    'paged' => $paged,
+    'ignore_sticky_posts' => true,
+    'no_found_rows' => true,
+  ];
+  if ($cats) $args['category__in'] = $cats;
+
+  $q = new WP_Query($args);
+
+  ob_start();
+  if ($q->have_posts()):
+    while($q->have_posts()): $q->the_post();
+      $cat = get_the_category(); $cat_show = $cat ? $cat[0]->name : 'Blog'; ?>
+      <div class="col-12 col-md-6 col-lg-4">
+        <article class="grid-card border rounded-4 h-100 text-center p-4">
+          <a class="grid-thumb d-block mx-auto mb-3" href="<?php the_permalink(); ?>">
+            <?php if (has_post_thumbnail()):
+              the_post_thumbnail('large', ['class'=>'w-100 h-100 object-fit-cover rounded-circle']);
+            else: ?>
+              <img class="w-100 h-100 object-fit-cover rounded-circle" src="https://picsum.photos/600/600?random=<?php echo get_the_ID(); ?>" alt="<?php the_title_attribute(); ?>">
+            <?php endif; ?>
+          </a>
+          <span class="badge-cat mb-2"><i class="fa-regular fa-circle me-2"></i><?php echo esc_html($cat_show); ?></span>
+          <h3 class="h4 fw-bold mb-2"><a class="post-link" href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
+          <div class="post-meta small text-muted"><?php the_author(); ?> • <?php echo human_time_diff(get_the_time('U'), current_time('timestamp')); ?> ago</div>
+        </article>
+      </div>
+    <?php endwhile;
+  endif; wp_reset_postdata();
+
+  wp_send_json_success(['html' => ob_get_clean()]);
+}
+

@@ -11,6 +11,7 @@
 <header class="site-header border-bottom">
   <nav class="navbar navbar-expand-lg navbar-light bg-white">
     <div class="container">
+
       <!-- Logo trái -->
       <a class="navbar-brand d-flex align-items-center" href="<?php echo esc_url(home_url('/')); ?>">
         <img src="<?php echo get_template_directory_uri(); ?>/assets/img/logo-dark.png"
@@ -20,14 +21,13 @@
       <!-- Nút hamburger -->
       <button class="navbar-toggler ms-auto" type="button"
               data-bs-toggle="collapse" data-bs-target="#primaryNav"
-              aria-controls="primaryNav" aria-expanded="false" aria-label="Toggle navigation">
+              aria-controls="primaryNav" aria-expanded="false" aria-label="<?php esc_attr_e('Toggle navigation','mythemes'); ?>">
         <span class="navbar-toggler-icon"></span>
       </button>
 
       <!-- Menu + social -->
       <div class="collapse navbar-collapse" id="primaryNav">
         <?php
-          // Menu căn GIỮA
           wp_nav_menu([
             'theme_location' => 'primary',
             'container'      => false,
@@ -51,6 +51,10 @@
           <li class="nav-item"><a class="nav-link p-0" href="#"><i class="fa-brands fa-x-twitter"></i></a></li>
         </ul>
       </div>
+
+      <!-- Backdrop phủ body khi menu mở (mobile) -->
+      <div class="navbar-backdrop" aria-hidden="true"></div>
     </div>
   </nav>
 </header>
+
