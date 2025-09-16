@@ -1,7 +1,3 @@
-/* ======================
-   NAVBAR CHÍNH + SUBMENU
-   ====================== */
-
 /* Navbar chính */
 .navbar {
   background:#fff;
@@ -73,10 +69,10 @@
   padding-left:0;
 }
 .navbar-nav .menu-item-has-children { position:relative; }
-/* Ẩn mũi tên submenu */
+/* Ẩn mũi tên submenu mặc định của WP (nếu walker có thêm) */
 .navbar-nav .menu-item-has-children > .nav-link::after { content:none; }
 
-/* ===== DESKTOP (>= 992px): submenu dropdown ===== */
+/* ===== DESKTOP (>= 992px): submenu dropdown + vô hiệu hóa click parent ===== */
 @media (min-width: 992px) {
   .navbar-nav {
     gap:28px;
@@ -114,6 +110,12 @@
   .navbar-nav .sub-menu .nav-link:hover {
     background:#f7f7f7;
     color:#111;
+  }
+
+  /* Item cấp 1 có con: không cho click ở desktop */
+  .navbar-nav > .menu-item-has-children > .nav-link {
+    pointer-events: none;
+    cursor: default;
   }
 }
 
@@ -153,17 +155,42 @@
   /* Link dễ bấm hơn */
   .navbar .nav-link { padding:10px 0; }
 
-  /* Ẩn toàn bộ submenu trên mobile */
-  .navbar-nav .sub-menu {
-    display:none !important;
-    position:static;
-    border:0; border-radius:0;
-    box-shadow:none;
-    padding:0;
-    width:100%;
+  /* Submenu: chuyển sang kiểu accordion mở bằng class .open */
+  .navbar-nav .menu-item-has-children > .sub-menu {
+    display: none;
+    position: static;
+    border: 0; border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    width: 100%;
+    margin-top: .25rem;
+  }
+  .navbar-nav .menu-item-has-children.open > .sub-menu {
+    display: block;
+  }
+  .navbar-nav .menu-item-has-children.open > .nav-link {
+    color: #f4d24f;
   }
 
-  /* Ẩn dải icon social flex-row (nếu có) */
+  /* Caret chỉ báo có dropdown */
+  .navbar-nav .menu-item-has-children > .nav-link {
+    position: relative;
+    padding-right: 24px; /* chừa chỗ cho caret */
+  }
+  .navbar-nav .menu-item-has-children > .nav-link::before {
+    content: "▸";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    transition: transform .2s ease;
+  }
+  .navbar-nav .menu-item-has-children.open > .nav-link::before {
+    transform: translateY(-50%) rotate(90deg);
+  }
+
+  /* Ẩn dải icon social flex-row (nếu có) trong nav chính */
   .navbar-nav.flex-row { display:none !important; }
 
   /* Gạch chân hover ở mobile */
@@ -187,7 +214,6 @@ body.nav-open { overflow:hidden; }
 
 /* Body có navbar fixed: chừa khoảng top */
 body.has-fixed-navbar { padding-top:80px; }
-
 
 
 
@@ -1039,3 +1065,368 @@ figure.alignright{ float:right; margin:0 0 1.25rem 2rem; }
   transition:all .25s ease; cursor:pointer;
 }
 .btn-reply:hover{ background:#111; color:#fff; }
+
+/* ===== Author Container ===== */
+.author-hero .container-xxl,
+.author-posts .container-xxl {
+  max-width: 1120px; /* giảm từ 1320 xuống 1120 */
+}
+
+/* ===== Author Hero ===== */
+.author-hero h1 {
+  font-size: 1.75rem;
+}
+.author-hero .lead {
+  font-size: 1rem;
+}
+
+/* ===== Author Posts Grid ===== */
+.ap-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  height: 100%;
+  transition: transform .25s ease;
+}
+/* Ảnh tròn với hover */
+.ap-thumb {
+  width: 100%;
+  aspect-ratio: 1/1;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 1rem;
+  display: block;
+  position: relative;
+}
+.ap-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .4s ease;
+}
+.ap-thumb:hover img {
+  transform: scale(1.08);
+}
+
+/* Badge category */
+.ap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: #ffe878;
+  color: #111;
+  font-weight: 600;
+  font-size: .8rem;
+  padding: .35rem .75rem;
+  border-radius: 999px;
+  margin-bottom: .75rem;
+  text-decoration: none;
+}
+
+/* Tiêu đề */
+.ap-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: .5rem;
+  line-height: 1.4;
+  min-height: 2.8em; /* giữ đúng 2 dòng */
+  max-height: 2.8em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ap-title .ap-link {
+  color: #111;
+  text-decoration: none;
+  position: relative;
+  display: inline; /* để pseudo bám theo text */
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* underline chạy từ trái sang phải */
+.ap-title .ap-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 0;
+  background: #111;
+  transition: width .3s ease;
+}
+.ap-title .ap-link:hover::after {
+  width: 100%;
+}
+
+/* Meta */
+.ap-meta {
+  font-size: .85rem;
+  color: #777;
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .ap-card { padding: 1.25rem; }
+  .ap-title { font-size: .95rem; }
+}
+@media (max-width: 575.98px) {
+  .ap-card { padding: 1rem; }
+  .ap-title { font-size: .9rem; }
+}
+
+
+
+/* =========================
+   ABOUT PAGE (compact 1120)
+   ========================= */
+
+/* Container 1120 */
+.container-1120{
+  max-width:1120px;
+  margin:0 auto;
+  padding-left:15px;
+  padding-right:15px;
+}
+
+/* Breadcrumb */
+.about-breadcrumb{ background:#fff; }
+.about-title{
+  font-size:2.1rem;          /* nhỏ hơn display-6 */
+  line-height:1.25;
+  margin:0;
+}
+.about-breadcrumb .crumbs{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+}
+.about-breadcrumb .crumbs a{
+  color:inherit;
+  text-decoration:none;
+}
+.about-breadcrumb .crumbs a:hover{ text-decoration:underline; }
+
+/* Hero layout */
+.about-hero{ background:#fff; }
+
+/* Ảnh tròn bên trái – nhỏ hơn + fallback nền xám khi không có ảnh */
+.about-round{
+  width:clamp(220px, 40vw, 440px);
+  aspect-ratio:1 / 1;
+  border-radius:50%;
+  background:#f0f0f0;       /* hiển thị nền khi chưa có Featured Image */
+  overflow:hidden;
+}
+.about-round img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:50%;
+  display:block;
+}
+
+/* Intro text – nhỏ gọn hơn */
+.about-intro{
+  font-size:1rem;
+  line-height:1.8;
+  color:#555;
+}
+.about-intro p{ margin-bottom:1rem; }
+
+/* CTA button – luôn hiển thị */
+.about-cta{
+  background:#f5e294;
+  color:#111;
+  font-weight:400;
+  border-radius:999px;
+  padding:.60rem 1.8rem;
+  border:0;
+  display:inline-block;
+  text-decoration:none;
+  transition:all .2s ease;
+}
+.about-cta:hover{
+  background:#111;
+  color:#fff;
+}
+
+/* Social icons – luôn hiển thị (link trống => #) */
+.about-social .soc{
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #eee;
+  color:#111;
+  text-decoration:none;
+  transition:all .2s ease;
+}
+.about-social .soc:hover{
+  background:#111;
+  color:#fff;
+}
+
+/* Responsive tweaks */
+@media (max-width:991.98px){
+  .about-hero .row{ text-align:center; }
+  .about-social{ justify-content:center; }
+  .about-cta{ margin:0 auto; }
+}
+
+
+/* =========================
+   CONTACT PAGE (compact 1120)
+   ========================= */
+
+/* ---- Hero (center) ---- */
+.page-hero {
+  padding-top: 2.25rem;
+  padding-bottom: 2.25rem;
+  text-align: center;
+}
+.page-hero .display-6 {
+  font-size: clamp(1.75rem, 2.2vw, 2.25rem);
+  line-height: 1.2;
+  margin-bottom: .35rem;
+}
+.page-hero .breadcrumb-small .breadcrumb {
+  --bs-breadcrumb-divider: '›';
+  justify-content: center;
+  font-size: .95rem;
+  margin-bottom: 0;
+}
+.page-hero .breadcrumb a {
+  color: #555;
+  text-decoration: none;
+}
+.page-hero .breadcrumb a:hover { color:#111; }
+
+/* ---- Page container width (Contact only) ---- */
+.contact-container { max-width: 1120px; }
+
+/* ---- Body spacing ---- */
+.contact-body { padding-bottom: 3rem; }
+
+/* ---- Left info column ---- */
+.contact-body h2 {
+  font-size: clamp(1.25rem, 1.8vw, 1.5rem);
+  line-height: 1.35;
+}
+.contact-body p { color:#6f6f6f; }
+
+/* Contact info links */
+.contact-body a {
+  color: #1b1919;       /* màu chữ như text mô tả */
+  text-decoration: none; /* bỏ gạch chân */
+  font-style: normal;
+}
+
+.contact-body a:hover {
+  color: #111;           /* hover thành màu chữ chính */
+  text-decoration: none; /* vẫn không gạch chân */
+}
+
+/* ---- Social icons (always visible) ---- */
+.social-ic {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid #eee; color:#111; text-decoration:none;
+  transition: .2s ease;
+}
+.social-ic:hover { background:#ebe3e3; color:#fff; }
+
+/* ---- Contact Form 7 - tidy inputs (no outer frame) ---- */
+.contact-body .wpcf7 form .wpcf7-form-control {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #eee;
+  background: #f8f8f8;
+}
+
+.contact-body .wpcf7 form p {
+  margin-bottom: 1rem;
+}
+
+.contact-body .wpcf7 input[type="text"],
+.contact-body .wpcf7 input[type="email"],
+.contact-body .wpcf7 input[type="url"],
+.contact-body .wpcf7 input[type="tel"],
+.contact-body .wpcf7 textarea {
+  padding: .7rem 1rem;
+  font-size: 1rem;
+  color: #111;
+  margin-bottom: 1rem;
+}
+
+.contact-body .wpcf7 textarea {
+  min-height: 200px;
+}
+
+/* Submit button */
+.contact-body .wpcf7 input[type="submit"] {
+  background: #f4d24f;
+  color: #111;
+  border: 0;
+  padding: .85rem 1.6rem;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.contact-body .wpcf7 input[type="submit"]:hover {
+  background: #111;
+  color: #fff;
+}
+
+/* CF7 messages / validation */
+.contact-body .wpcf7 form .wpcf7-response-output {
+  margin: 1rem 0 0;
+  padding: .75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  background: #f9f9f9;
+  font-size: .95rem;
+}
+
+.contact-body .wpcf7-not-valid-tip {
+  font-size: .85rem;
+  color: #d33;
+  margin-top: .35rem;
+}
+
+.contact-body .wpcf7 form.invalid .wpcf7-response-output {
+  border-color: #d33;
+  background: #fff2f2;
+}
+
+.contact-body .wpcf7 form.sent .wpcf7-response-output {
+  border-color: #2e7;
+  background: #f0fff7;
+}
+
+/* ---- Simple icon list spacing for contact info ---- */
+.contact-body .d-flex.gap-3 i {
+  color: #111;
+}
+
+/* ---- Responsive tweaks ---- */
+@media (max-width: 991.98px) {
+  .contact-body .row.g-5 > [class*="col-"] { margin-top: .25rem; }
+  .contact-body .row.g-5 { row-gap: 1.75rem; }
+}
+
+@media (max-width: 575.98px) {
+  .contact-body .social-ic { width: 34px; height: 34px; }
+  .contact-body .wpcf7 textarea { min-height: 160px; }
+}
+
+
