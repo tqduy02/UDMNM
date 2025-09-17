@@ -1430,3 +1430,137 @@ figure.alignright{ float:right; margin:0 0 1.25rem 2rem; }
 }
 
 
+/* ========= Layout ========= */
+.container-1240 { max-width:1240px; margin-left:auto; margin-right:auto; }
+
+/* Giữ lại nếu nơi khác còn dùng: */
+.container-1120 { max-width:1120px; } /* có thể xóa khi đã thay hết */
+
+/* Ẩn tràn & clamp 2 dòng */
+.line-clamp-2{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+/* ========= Underline animate (reusable) ========= */
+.underline-animate{
+  position:relative; display:inline-block; text-decoration:none;
+}
+.underline-animate::after{
+  content:"";
+  position:absolute; left:0; bottom:-8px;
+  height:2px; width:0;
+  background:#111;            /* đổi sang #f4d24f nếu là màu thương hiệu */
+  transition:width .35s ease;
+}
+.underline-animate:hover::after{ width:100%; }
+
+/* ========= Page Header ========= */
+.page-hero{ text-align:center}
+.page-hero .page-title{ margin:0; line-height:1.2; }
+
+/* Breadcrumb căn giữa */
+.page-hero .breadcrumb{
+  display:flex; justify-content:center; align-items:center;
+  gap:.5rem; margin:12px 0 0;
+}
+.page-hero .breadcrumb a{ color:#6c757d; text-decoration:none; }
+.page-hero .breadcrumb a:hover{ color:#111; text-decoration:underline; }
+
+/* ========= Cards ========= */
+.card.h-100{ display:flex; flex-direction:column; }
+.card .card-body{ display:flex; flex-direction:column; }
+
+/* Hover ảnh */
+.card .ratio img{ transition: transform .35s ease; }
+.card:hover .ratio img{ transform: scale(1.05); }
+
+/* Placeholder khi không có thumbnail */
+.thumb-placeholder{
+  background:#e9ecef;           /* màu xám nhạt */
+  border:1px dashed #d1d5db;    /* đường viền nhẹ để không trống trải */
+  width:100%; height:100%;
+}
+
+/* Tiêu đề card */
+.card-title-link{ color:#111; text-decoration:none; }
+.card-title-link:hover{ color:#111; } /* màu chữ giữ nguyên, hiệu ứng underline do .underline-animate */
+
+/* Meta nhỏ (category/tech) */
+.meta{
+  font-size:.78rem; color:#6c757d;
+  text-transform:uppercase; letter-spacing:.3px;
+}
+.meta a{ color:inherit; text-decoration:none; }
+.meta a:hover{ color:#f4d24f; }
+
+/* Hàng meta đáy card: không rớt dòng */
+.card-meta{
+  margin-top:auto;
+  display:flex; align-items:center; gap:.5rem;
+  min-width:0; /* cần để ellipsis hoạt động */
+}
+.card-meta__date{
+  white-space:nowrap; flex:0 0 auto;
+}
+.card-meta__sep{
+  flex:0 0 auto; color:#d1d5db;
+}
+.card-meta__terms{
+  min-width:0; flex:1 1 auto;        /* phần này co giãn */
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* ========= Pagination ========= */
+.navigation.pagination .nav-links{ display:flex; gap:.5rem; flex-wrap:wrap; }
+.navigation.pagination .page-numbers{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:38px; height:38px; padding:0 .75rem;
+  border:1px solid #e5e7eb; border-radius:.5rem;
+  color:#111; text-decoration:none;
+}
+.navigation.pagination .page-numbers.current,
+.navigation.pagination .page-numbers:hover{
+  background:#111; color:#fff; border-color:#111;
+}
+
+/* ========= Single Project ========= */
+.single-project .content{ line-height:1.8; }
+.single-project .content img{ max-width:100%; height:auto; border-radius:12px; }
+
+/* Tech chips */
+.single-project .tech-list a{
+  display:inline-block; margin:.25rem .5rem .25rem 0; padding:.25rem .5rem;
+  border:1px solid #e5e7eb; border-radius:9999px;
+  font-size:.85rem; color:#111; text-decoration:none;
+}
+.single-project .tech-list a:hover{ background:#f4d24f; border-color:#f4d24f; color:#111; }
+
+/* Footer meta */
+.single-project .footer-meta{ margin-top:1rem; color:#6c757d; font-size:.9rem; }
+
+/* ========= (Tùy chọn) Navbar active cho Projects ========= */
+.navbar .nav-item.current-menu-item > .nav-link{ color:#f4d24f; }
+
+/* Single Project featured image */
+.single-project-thumb {
+  aspect-ratio: 16/9;     /* giữ tỉ lệ chữ nhật */
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.single-project-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;       /* lấp đầy khung */
+  object-position: center; /* lấy trung tâm ảnh */
+  display: block;
+}
+
+
+/* ========= Responsive tinh chỉnh meta ========= */
+@media (max-width: 480px){
+  .card-meta__sep{ display:none; }
+}
