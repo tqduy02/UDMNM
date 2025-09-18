@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "mythemes/**"
+      - "wp-content/themes/mythemes/**"
 
 jobs:
   deploy:
@@ -19,7 +19,7 @@ jobs:
         uses: burnett01/rsync-deployments@6.0
         with:
           switches: -avzr --delete
-          path: mythemes/
+          path: wp-content/themes/mythemes/ 
           remote_path: ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/
           remote_host: ${{ secrets.SSH_HOST }}
           remote_user: ${{ secrets.SSH_USER }}
