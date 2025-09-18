@@ -1564,3 +1564,121 @@ figure.alignright{ float:right; margin:0 0 1.25rem 2rem; }
 @media (max-width: 480px){
   .card-meta__sep{ display:none; }
 }
+
+/* =======================
+   READING TIME + TOC (match theme)
+   ======================= */
+
+:root{
+  --brand-accent: #f4d24f;   /* màu nhấn của bạn */
+  --toc-max-width: 1120px;   /* bề rộng container */
+}
+
+/* Khối bọc */
+.rtotoc-wrap{
+  max-width: var(--toc-max-width);
+  margin: 0 auto 24px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(17,17,17,.04);
+}
+
+/* Reading time */
+.rtotoc-reading{
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #545d5c;
+  font-weight: 600;
+}
+.rtotoc-reading::before{
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--brand-accent);
+  border-radius: 50%;
+  margin-right: 8px;
+  transform: translateY(-1px);
+}
+
+/* Tiêu đề TOC */
+.rtotoc-title{
+  margin: 0 0 8px;
+  font-weight: 800;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #111;
+  position: relative;
+  padding-bottom: 6px;
+}
+.rtotoc-title::after{
+  content: "";
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 48px; height: 2px;
+  background: var(--brand-accent);
+}
+
+/* Danh sách TOC */
+.rtotoc-list{
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  column-gap: 24px;
+}
+.rtotoc-list li{
+  margin: 6px 0;
+  line-height: 1.45;
+}
+
+/* Cấp độ heading */
+.rtotoc-item.rt-h2{ margin-top: 10px; font-weight: 600; }
+.rtotoc-item.rt-h3{ padding-left: 14px; }
+.rtotoc-item.rt-h4{ padding-left: 22px; font-size: 95%; }
+
+/* Link + hiệu ứng underline trái→phải */
+.rtotoc-list a{
+  position: relative;
+  display: inline-block;
+  color: #111;
+  text-decoration: none !important; /* chặn underline mặc định */
+  transition: color .25s ease;
+}
+/* gạch chân ẩn mặc định */
+.rtotoc-list a::after{
+  content: "";
+  position: absolute;
+  left: 0; bottom: -2px;
+  width: 0; height: 2px;
+  background: var(--brand-accent);
+  transition: width .25s ease;
+}
+/* hover vẫn có hiệu ứng */
+.rtotoc-list a:hover::after{ width: 100%; }
+
+/* Chỉ khi user đã tương tác (click/scroll) mới underline mục đang active */
+.rtotoc-wrap.rtoc-activated .rtotoc-link-active > a::after{ width: 100%; }
+
+
+/* Highlight heading khi scroll tới */
+.rtotoc-anchor-highlight{
+  outline: 2px dashed rgba(244,210,79,.6) !important;
+  outline-offset: 6px;
+  transition: outline-color .3s ease;
+}
+
+/* Offset chống bị header che – chỉnh số cho đúng chiều cao header */
+[id^="rtoc-"]{ scroll-margin-top: 80px; }
+
+/* Tắt smooth mặc định của trình duyệt (để dùng smooth JS trong plugin) */
+html{ scroll-behavior: auto; }
+
+/* Responsive */
+@media (max-width: 992px){
+  .rtotoc-wrap{ padding: 14px 14px; }
+  .rtotoc-title{ font-size: 14px; }
+  .rtotoc-list li{ margin: 5px 0; }
+}

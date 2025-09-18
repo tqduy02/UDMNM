@@ -21,3 +21,4 @@ add_action('wp_enqueue_scripts', function () {
   // JS theme
   wp_enqueue_script('mythemes-app', MYT_URI . '/assets/js/app.js', [], MYT_VERSION, true);
 });
+

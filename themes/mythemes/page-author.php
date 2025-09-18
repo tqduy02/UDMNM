@@ -1,6 +1,7 @@
 <?php
 /**
- * Template Name: Author Page 
+ * Template Name: Author Page
+ * Description: Author page – shows author info and posts.
  */
 if (!defined('ABSPATH')) exit;
 get_header();
@@ -39,45 +40,64 @@ foreach ($socials as $k => $v) { if (empty($v)) $socials[$k] = '#'; }
 
 /* ========== Hero Author ========== */
 ?>
-<section class="author-hero py-5 text-center">
+<section class="author-hero py-5 text-center" aria-label="<?php echo esc_attr__('Author hero', 'mythemes'); ?>">
   <div class="container-xxl">
     <div class="mx-auto" style="max-width:880px">
       <div class="mb-3">
         <?php echo get_avatar($author_id, 128, '', $displayname, ['class'=>'rounded-circle']); ?>
       </div>
-      <h1 class="h2 fw-bold mb-2">Hi, I'm <?php echo esc_html($displayname); ?></h1>
 
-      <div class="badge-cat d-inline-flex mb-3"><?php echo intval($post_count); ?> Articles</div>
+      <h1 class="h2 fw-bold mb-2">
+        <?php
+        /* translators: %s: author display name */
+        printf( esc_html__("Hi, I'm %s", 'mythemes'), esc_html($displayname) );
+        ?>
+      </h1>
+
+      <div class="badge-cat d-inline-flex mb-3">
+        <?php
+        /* translators: %s: number of articles */
+        $count_formatted = number_format_i18n( (int) $post_count );
+        $articles_label  = _n('%s Article', '%s Articles', (int)$post_count, 'mythemes');
+        printf( esc_html($articles_label), esc_html($count_formatted) );
+        ?>
+      </div>
 
       <?php if (!empty($bio)) : ?>
         <p class="lead text-muted mb-3"><?php echo esc_html($bio); ?></p>
       <?php endif; ?>
 
       <!-- Social icons (luôn hiển thị) -->
-      <div class="d-flex justify-content-center align-items-center gap-3">
+      <div class="d-flex justify-content-center align-items-center gap-3" aria-label="<?php echo esc_attr__('Author social links', 'mythemes'); ?>">
         <a class="social-ic d-inline-flex align-items-center justify-content-center"
-           href="<?php echo esc_url($socials['facebook']); ?>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-facebook-f"></i>
+           href="<?php echo esc_url($socials['facebook']); ?>" target="_blank" rel="noopener"
+           aria-label="<?php echo esc_attr__('Facebook', 'mythemes'); ?>">
+          <i class="fa-brands fa-facebook-f" aria-hidden="true"></i>
         </a>
         <a class="social-ic d-inline-flex align-items-center justify-content-center"
-           href="<?php echo esc_url($socials['instagram']); ?>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-instagram"></i>
+           href="<?php echo esc_url($socials['instagram']); ?>" target="_blank" rel="noopener"
+           aria-label="<?php echo esc_attr__('Instagram', 'mythemes'); ?>">
+          <i class="fa-brands fa-instagram" aria-hidden="true"></i>
         </a>
         <a class="social-ic d-inline-flex align-items-center justify-content-center"
-           href="<?php echo esc_url($socials['x']); ?>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-x-twitter"></i>
+           href="<?php echo esc_url($socials['x']); ?>" target="_blank" rel="noopener"
+           aria-label="<?php echo esc_attr__('X (Twitter)', 'mythemes'); ?>">
+          <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
         </a>
         <a class="social-ic d-inline-flex align-items-center justify-content-center"
-           href="<?php echo esc_url($socials['youtube']); ?>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-youtube"></i>
+           href="<?php echo esc_url($socials['youtube']); ?>" target="_blank" rel="noopener"
+           aria-label="<?php echo esc_attr__('YouTube', 'mythemes'); ?>">
+          <i class="fa-brands fa-youtube" aria-hidden="true"></i>
         </a>
         <a class="social-ic d-inline-flex align-items-center justify-content-center"
-           href="<?php echo esc_url($socials['behance']); ?>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-behance"></i>
+           href="<?php echo esc_url($socials['behance']); ?>" target="_blank" rel="noopener"
+           aria-label="<?php echo esc_attr__('Behance', 'mythemes'); ?>">
+          <i class="fa-brands fa-behance" aria-hidden="true"></i>
         </a>
         <a class="social-ic d-inline-flex align-items-center justify-content-center"
-           href="<?php echo esc_url($socials['dribbble']); ?>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-dribbble"></i>
+           href="<?php echo esc_url($socials['dribbble']); ?>" target="_blank" rel="noopener"
+           aria-label="<?php echo esc_attr__('Dribbble', 'mythemes'); ?>">
+          <i class="fa-brands fa-dribbble" aria-hidden="true"></i>
         </a>
       </div>
     </div>
@@ -88,56 +108,64 @@ foreach ($socials as $k => $v) { if (empty($v)) $socials[$k] = '#'; }
 /* ========== Query bài viết của Author ========== */
 $paged = max(1, get_query_var('paged') ?: get_query_var('page'));
 $q = new WP_Query([
-  'post_type'      => 'post',
-  'author'         => $author_id,
-  'posts_per_page' => 9,
-  'paged'          => $paged,
+  'post_type'           => 'post',
+  'author'              => $author_id,
+  'posts_per_page'      => 9,
+  'paged'               => $paged,
   'ignore_sticky_posts' => true,
 ]);
 ?>
 
-<section class="author-posts pb-5">
+<section class="author-posts pb-5" aria-label="<?php echo esc_attr__('Author posts', 'mythemes'); ?>">
   <div class="container-xxl">
     <div class="row g-4">
       <?php if ($q->have_posts()): while ($q->have_posts()): $q->the_post();
-        $cats = get_the_category();
-        $cat_name = $cats ? $cats[0]->name : 'Blog';
+        $cats     = get_the_category();
+        $cat_name = $cats ? $cats[0]->name : esc_html__('Blog', 'mythemes');
         $cat_link = $cats ? get_category_link($cats[0]->term_id) : '#';
       ?>
         <div class="col-md-6 col-lg-4">
           <article class="ap-card">
             <!-- Ảnh tròn -->
-            <a class="d-block ap-thumb" href="<?php the_permalink(); ?>">
+            <a class="d-block ap-thumb" href="<?php the_permalink(); ?>" aria-label="<?php echo esc_attr__('View post', 'mythemes'); ?>">
               <?php
                 if (has_post_thumbnail()){
-                  the_post_thumbnail('large', ['class'=>'w-100 h-100 object-fit-cover']);
+                  the_post_thumbnail('large', ['class'=>'w-100 h-100 object-fit-cover', 'alt'=>esc_attr(get_the_title())]);
                 } else {
-                  echo '<span class="d-block w-100 h-100 bg-light"></span>';
+                  echo '<span class="d-block w-100 h-100 bg-light" aria-hidden="true"></span>';
                 }
               ?>
             </a>
 
             <!-- Badge category -->
-            <a class="ap-badge text-decoration-none" href="<?php echo esc_url($cat_link); ?>">
-              <i class="fa-regular fa-circle"></i> <?php echo esc_html($cat_name); ?>
+            <a class="ap-badge text-decoration-none" href="<?php echo esc_url($cat_link); ?>"
+               aria-label="<?php echo esc_attr( sprintf( /* translators: %s: category name */ __('View category: %s', 'mythemes'), $cat_name ) ); ?>">
+              <i class="fa-regular fa-circle" aria-hidden="true"></i> <?php echo esc_html($cat_name); ?>
             </a>
 
             <!-- Tiêu đề -->
             <h3 class="ap-title">
-              <a class="ap-link" href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+              <a class="ap-link" href="<?php the_permalink(); ?>" aria-label="<?php echo esc_attr__('View post', 'mythemes'); ?>">
+                <?php the_title(); ?>
+              </a>
             </h3>
 
             <!-- Meta -->
             <div class="ap-meta">
-              <?php the_author(); ?> •
-              <?php echo esc_html( human_time_diff(get_the_time('U'), current_time('timestamp')) ); ?> ago
+              <?php
+              /* translators: %s: time ago, e.g. '3 hours' */
+              $ago = human_time_diff(get_the_time('U'), current_time('timestamp'));
+              printf( esc_html__('%s ago', 'mythemes'), esc_html($ago) );
+              ?>
             </div>
           </article>
         </div>
-      <?php endwhile; ?>
+      <?php endwhile; wp_reset_postdata(); ?>
 
-      <?php wp_reset_postdata(); else: ?>
-        <div class="col-12"><p>Author chưa có bài viết.</p></div>
+      <?php else: ?>
+        <div class="col-12">
+          <p><?php echo esc_html__('Author has no posts yet.', 'mythemes'); ?></p>
+        </div>
       <?php endif; ?>
     </div>
   </div>

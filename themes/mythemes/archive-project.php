@@ -9,15 +9,20 @@ get_header(); ?>
 
   <?php
   if (function_exists('yoast_breadcrumb')) {
-    yoast_breadcrumb('<nav class="breadcrumb" aria-label="breadcrumb">','</nav>');
+    yoast_breadcrumb(
+      '<nav class="breadcrumb" aria-label="' . esc_attr__('Breadcrumb', 'mythemes') . '">',
+      '</nav>'
+    );
   } elseif (function_exists('rank_math_the_breadcrumbs')) {
-    echo '<nav class="breadcrumb" aria-label="breadcrumb">';
+    echo '<nav class="breadcrumb" aria-label="' . esc_attr__('Breadcrumb', 'mythemes') . '">';
     rank_math_the_breadcrumbs();
     echo '</nav>';
   } else { ?>
-    <nav class="breadcrumb" aria-label="breadcrumb">
-      <a href="<?php echo esc_url(home_url('/')); ?>">Home</a>
-      <span>›</span>
+    <nav class="breadcrumb" aria-label="<?php echo esc_attr__('Breadcrumb', 'mythemes'); ?>">
+      <a href="<?php echo esc_url(home_url('/')); ?>">
+        <?php echo esc_html__('Home', 'mythemes'); ?>
+      </a>
+      <span aria-hidden="true">›</span>
       <span><?php post_type_archive_title(); ?></span>
     </nav>
   <?php } ?>
@@ -30,11 +35,11 @@ get_header(); ?>
       <div class="col-12 col-sm-6 col-lg-4">
         <article <?php post_class('card h-100 shadow-sm border-0'); ?>>
 
-          <a href="<?php the_permalink(); ?>" class="ratio ratio-16x9 overflow-hidden d-block">
+          <a href="<?php the_permalink(); ?>" class="ratio ratio-16x9 overflow-hidden d-block" aria-label="<?php echo esc_attr__('View project', 'mythemes'); ?>">
             <?php if (has_post_thumbnail()) {
               the_post_thumbnail('large', ['class' => 'w-100 h-100 object-fit-cover', 'loading' => 'lazy']);
             } else { ?>
-              <div class="thumb-placeholder w-100 h-100"></div>
+              <div class="thumb-placeholder w-100 h-100" aria-hidden="true"></div>
             <?php } ?>
           </a>
 
@@ -50,14 +55,18 @@ get_header(); ?>
             </div>
 
             <h2 class="h5 mb-2">
-              <a class="card-title-link underline-animate" href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+              <a class="card-title-link underline-animate" href="<?php the_permalink(); ?>">
+                <?php the_title(); ?>
+              </a>
             </h2>
 
             <p class="text-muted line-clamp-2 mb-3"><?php echo get_the_excerpt(); ?></p>
 
             <div class="small text-muted d-flex align-items-center gap-2 card-meta">
-              <span class="card-meta__date"><?php echo get_the_date(); ?></span>
-              <span class="card-meta__sep">•</span>
+              <span class="card-meta__date">
+                <?php echo esc_html( get_the_date( get_option('date_format') ) ); ?>
+              </span>
+              <span class="card-meta__sep" aria-hidden="true">•</span>
               <span class="card-meta__terms">
                 <?php
                 // tech_stack có thể dài, strip tags để text-thẳng cho ellipsis
@@ -73,10 +82,16 @@ get_header(); ?>
     <?php endwhile; ?>
   </div>
 
-  <?php the_posts_pagination(); ?>
+  <?php
+  the_posts_pagination([
+    'prev_text'          => esc_html__('Previous', 'mythemes'),
+    'next_text'          => esc_html__('Next', 'mythemes'),
+    'screen_reader_text' => esc_html__('Projects navigation', 'mythemes'),
+  ]);
+  ?>
 
 <?php else: ?>
-  <p>No projects found.</p>
+  <p><?php echo esc_html__('No projects found.', 'mythemes'); ?></p>
 <?php endif; ?>
 </div>
 
