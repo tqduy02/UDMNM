@@ -1,0 +1,10 @@
+node_modules/
+*.map
+*.log
+.DS_Store
+
+# BỎ uploads nếu không muốn ghi đè ảnh trên server
+wp-content/uploads/
+
+*.env
+.env.*
