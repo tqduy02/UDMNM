@@ -43,3 +43,5 @@ main{ padding:48px 0; }
 .post-card img{ width:140px; height:140px; object-fit:cover; border-radius:999px; }
 .badge{ background:var(--accent); color:#111; border-radius:999px; padding:6px 12px; font-weight:600; font-size:12px; display:inline-flex; align-items:center; gap:6px; }
 h1,h2,h3{ line-height:1.25; }
+
+/* test deploy at 2025-09-18 */
