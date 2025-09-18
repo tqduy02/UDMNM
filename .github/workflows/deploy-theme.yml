@@ -4,31 +4,34 @@ on:
   workflow_dispatch:
   push:
     branches: [ "main" ]
-    paths:
-      - "themes/mythemes/**"
+    paths: [ "themes/mythemes/**" ]   # repo của bạn
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Debug — show local files
+      - name: Debug — show theme files in repo
         run: |
+          echo "== repo tree =="
           ls -la
-          ls -la wp-content/themes/mythemes || true
+          echo "== themes/mythemes =="
+          ls -laR themes/mythemes || true
 
+      # FIX: dùng tag có 'v'
       - name: Rsync theme to server
-        uses: burnett01/rsync-deployments@6.0
+        uses: burnett01/rsync-deployments@v6.0
         with:
           switches: -avzr --delete
-          path: themes/mythemes/
-          remote_path: ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/
+          path: themes/mythemes/                                       # đường dẫn trong repo
+          remote_path: ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/ # đích trên server
           remote_host: ${{ secrets.SSH_HOST }}
           remote_user: ${{ secrets.SSH_USER }}
           remote_key:  ${{ secrets.SSH_KEY }}
 
-      - name: Post-deploy (ownership, caches, activate)
+      - name: Post-deploy — set owner, flush cache, activate theme
         uses: appleboy/ssh-action@v1.0.3
         with:
           host:     ${{ secrets.SSH_HOST }}
