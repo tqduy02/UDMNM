@@ -26,3 +26,4 @@ add_filter('show_admin_bar', '__return_false');
  * Tắt tự chèn <p> và <br> của Contact Form 7 (tùy chọn)
  */
 add_filter('wpcf7_autop_or_not', '__return_false');
+

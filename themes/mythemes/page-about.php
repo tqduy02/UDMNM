@@ -1,28 +1,32 @@
 <?php
 /**
  * Template Name: About
+ * Template Post Type: page
  * Description: About page – uses Featured Image as round hero.
  */
 if (!defined('ABSPATH')) exit;
 
 get_header();
 
-$ok = function_exists('get_field');
+
+$ok      = function_exists('get_field');
+$page_id = get_queried_object_id();
 
 // Text fields (ACF – theo ngôn ngữ của bản dịch trang)
-$heading  = $ok ? (string) get_field('about_heading')    : '';
-$intro    = $ok ? (string) get_field('about_intro')      : '';
-$btn_text = $ok ? (string) get_field('about_btn_text')   : '';
-$btn_url  = $ok ? (string) get_field('about_btn_url')    : '';
+$heading  = $ok ? (string) get_field('about_heading', $page_id)  : '';
+$intro    = $ok ? (string) get_field('about_intro', $page_id)    : '';
+$btn_text = $ok ? (string) get_field('about_btn_text', $page_id) : '';
+$btn_url  = $ok ? (string) get_field('about_btn_url', $page_id)  : '';
 
 // Social (có thể trống)
-$fb = $ok ? (string) get_field('facebook_url')  : '';
-$ig = $ok ? (string) get_field('instagram_url') : '';
-$tw = $ok ? (string) get_field('twitter_url')   : '';
-$be = $ok ? (string) get_field('behance_url')   : '';
-$dr = $ok ? (string) get_field('dribbble_url')  : '';
+$fb = $ok ? (string) get_field('facebook_url', $page_id)  : '';
+$ig = $ok ? (string) get_field('instagram_url', $page_id) : '';
+$tw = $ok ? (string) get_field('twitter_url', $page_id)   : '';
+$be = $ok ? (string) get_field('behance_url', $page_id)   : '';
+$dr = $ok ? (string) get_field('dribbble_url', $page_id)  : '';
 
 $page_title = ($heading !== '') ? $heading : get_the_title();
+
 
 // Ảnh đại diện trang (round hero)
 $feat_id = has_post_thumbnail() ? get_post_thumbnail_id() : 0;

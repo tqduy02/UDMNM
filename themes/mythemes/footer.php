@@ -19,7 +19,7 @@
         $lang = function_exists('pll_current_language') ? pll_current_language('slug') : 'en';
         $cf7_map = [
           'en' => ['id' => '48faa3a', 'title' => __('Newsletter', 'mythemes')],
-          'vi' => ['id' => '48faa3a', 'title' => __('Newsletter', 'mythemes')], // ví dụ: 'Bản tin'
+          'vi' => ['id' => 'd2edc2c', 'title' => __('Newsletter VI', 'mythemes')], // ví dụ: 'Bản tin'
         ];
         $cfg = isset($cf7_map[$lang]) ? $cf7_map[$lang] : $cf7_map['en'];
 

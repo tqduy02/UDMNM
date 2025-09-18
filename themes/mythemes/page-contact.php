@@ -107,18 +107,32 @@ $cf7_shortcode = $acf_ok ? ( get_field('contact_form_shortcode') ?: '' ) : '';
         </div>
       </div>
 
-      <!-- Right form (no extra frame) -->
+      <!-- Right form (language-aware CF7, map thủ công EN/VI) -->
       <div class="col-lg-7" role="region" aria-label="<?php echo esc_attr__('Contact form', 'mythemes'); ?>">
         <?php
-          if (!empty($cf7_shortcode)) {
-            echo do_shortcode($cf7_shortcode);
+          // ID form CF7 (lấy số từ URL khi edit form)
+          $map = [
+            'en' => 198, // ID số form Contact EN
+            'vi' => 383, // ID số form Contact VI
+          ];
+
+          // Lấy ngôn ngữ hiện tại
+          $lang = function_exists('pll_current_language') ? pll_current_language('slug') : 'en';
+
+          // Chọn ID theo ngôn ngữ (mặc định về EN nếu không có)
+          $form_id = isset($map[$lang]) ? $map[$lang] : $map['en'];
+
+          // Render form
+          if ($form_id) {
+            echo do_shortcode('[contact-form-7 id="' . intval($form_id) . '"]');
           } else {
             echo '<div class="alert alert-warning small">' .
-                 esc_html__('Please add your Contact Form 7 shortcode in ACF:', 'mythemes') .
-                 ' <em>contact_form_shortcode</em>.</div>';
+                esc_html__('Please set CF7 IDs for EN/VI in the template.', 'mythemes') .
+                '</div>';
           }
         ?>
       </div>
+
 
     </div>
   </div>

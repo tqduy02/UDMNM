@@ -33,9 +33,9 @@
     "location": [
         [
             {
-                "param": "page",
+                "param": "page_template",
                 "operator": "==",
-                "value": "163"
+                "value": "page-posts-features.php"
             }
         ]
     ],
@@ -48,5 +48,5 @@
     "active": true,
     "description": "",
     "show_in_rest": 0,
-    "modified": 1758018987
+    "modified": 1758166439
 }
