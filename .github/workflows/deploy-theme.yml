@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # (Tuỳ chọn) Build assets nếu có package.json trong theme/plugin
+      # (Optional) Build assets nếu theme/plugin có package.json
       - name: Build theme/plugin assets (optional)
         if: hashFiles('themes/**/package.json', 'plugins/**/package.json') != ''
         run: |
@@ -42,40 +42,51 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Ensure remote dirs exist
+      - name: Ensure remote dirs & permissions
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            set -e
+            sudo mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'
+            sudo chown -R \$USER:www-data '${{ env.REMOTE_PATH }}/wp-content'
+            sudo find '${{ env.REMOTE_PATH }}/wp-content' -type d -exec chmod 2775 {} \;
+            sudo find '${{ env.REMOTE_PATH }}/wp-content' -type f -exec chmod 0664 {} \;
+          "
 
-      - name: Rsync THEMES (if present)
+      - name: Rsync THEMES
         if: hashFiles('themes/**') != ''
         run: |
           set -e
           RSYNC_EXCLUDES=""
           [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+
           rsync -az --delete \
+            --omit-dir-times --no-perms --no-owner --no-group \
+            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
             $RSYNC_EXCLUDES \
             themes/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/
 
-      - name: Rsync PLUGINS (if present)
+      - name: Rsync PLUGINS
         if: hashFiles('plugins/**') != ''
         run: |
           set -e
           RSYNC_EXCLUDES=""
           [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+
           rsync -az --delete \
+            --omit-dir-times --no-perms --no-owner --no-group \
+            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
             $RSYNC_EXCLUDES \
             plugins/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/
 
-      - name: Put site in maintenance mode
+      - name: Enable maintenance mode
         continue-on-error: true
         run: |
           ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode activate --allow-root || true"
 
-      - name: Post-deploy tasks (flush cache & permalinks)
+      - name: Post-deploy (flush cache & permalinks)
         continue-on-error: true
         run: |
           ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'EOF'
@@ -91,8 +102,10 @@ jobs:
           ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode deactivate --allow-root || true"
 
-      - name: Fix permissions (optional)
+      - name: Fix permissions (final polish)
         continue-on-error: true
         run: |
           ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "sudo chown -R $USER:www-data '${{ env.REMOTE_PATH }}/wp-content' && sudo find '${{ env.REMOTE_PATH }}/wp-content' -type d -exec chmod 775 {} \; && sudo find '${{ env.REMOTE_PATH }}/wp-content' -type f -exec chmod 664 {} \; || true"
+            "sudo chown -R $USER:www-data '${{ env.REMOTE_PATH }}/wp-content' && \
+             sudo find '${{ env.REMOTE_PATH }}/wp-content' -type d -exec chmod 2775 {} \; && \
+             sudo find '${{ env.REMOTE_PATH }}/wp-content' -type f -exec chmod 0664 {} \; || true"
