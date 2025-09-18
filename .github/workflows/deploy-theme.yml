@@ -1,58 +1,62 @@
 name: Deploy WordPress Theme
 
 on:
-  workflow_dispatch:          # cho phép bấm Run workflow thủ công
+  workflow_dispatch:               # chạy thủ công được
   push:
-    branches: [ "main" ]
-    paths: [ "themes/mythemes/**" ]   # chỉ deploy khi có thay đổi trong themes/mythemes
+    branches: [ "main" ]           # hoặc đổi sang nhánh bạn muốn
+    paths: [ "themes/mythemes/**" ]# chỉ trigger khi theme thay đổi
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug — show theme files in repo
+      - name: Debug — show repo tree
         run: |
-          echo "== repo root =="
-          ls -la
-          echo "== themes/mythemes =="
-          ls -laR themes/mythemes || true
+          echo "== repo root ==" && ls -la
+          echo "== themes/mythemes ==" && ls -laR themes/mythemes || true
 
-      # Copy theme từ repo -> VM bằng SSH Deploy (rsync)
-      - name: Upload theme via SSH (rsync)
-        uses: easingthemes/ssh-deploy@v2.2.11
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
-          ARGS: "-avzr --delete"
-          SOURCE: "themes/mythemes/"                     # đường dẫn TRONG REPO
-          REMOTE_HOST: ${{ secrets.SSH_HOST }}
-          REMOTE_USER: ${{ secrets.SSH_USER }}
-          TARGET: "${{ secrets.WP_PATH }}/wp-content/themes/mythemes/"  # đích TRÊN VM
+      # 1) Viết private key từ secret base64 -> ~/.ssh/deploy_key
+      - name: Write SSH private key from base64
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY_B64 }}" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # xác thực key hợp lệ
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1 || { echo "Invalid SSH key"; exit 1; }
 
-      # Sau khi upload: chown + flush cache + (lần đầu) activate theme
-      - name: Post-deploy on VM
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host:     ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key:      ${{ secrets.SSH_KEY }}
-          script: |
-            sudo chown -R www-data:www-data ${{ secrets.WP_PATH }}/wp-content/themes/mythemes
-            sudo -u www-data wp --path=${{ secrets.WP_PATH }} cache flush || true
-            sudo -u www-data wp --path=${{ secrets.WP_PATH }} redis flush  || true
-            sudo -u www-data wp --path=${{ secrets.WP_PATH }} theme activate mythemes || true
+      # 2) Thêm host key để tránh prompt yes/no
+      - name: Add host key to known_hosts
+        shell: bash
+        run: |
+          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      # Liệt kê để chắc chắn file đã tới server
-      - name: Debug — list files on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host:     ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key:      ${{ secrets.SSH_KEY }}
-          script: |
+      # 3) Rsync theme từ repo -> server
+      - name: Rsync theme to server
+        shell: bash
+        run: |
+          rsync -avzr --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            themes/mythemes/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WP_PATH }}/wp-content/themes/mythemes/"
+
+      # 4) Post-deploy: chown + flush cache + (lần đầu) activate theme + list file
+      - name: Post-deploy on server
+        shell: bash
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'SH'
+            sudo chown -R www-data:www-data /var/www/wordpress/wp-content/themes/mythemes
+            sudo -u www-data wp --path=/var/www/wordpress cache flush || true
+            sudo -u www-data wp --path=/var/www/wordpress redis flush  || true
+            sudo -u www-data wp --path=/var/www/wordpress theme activate mythemes || true
+
             echo "== Remote theme dir =="
-            ls -la ${{ secrets.WP_PATH }}/wp-content/themes/mythemes | head -n 50
+            ls -la /var/www/wordpress/wp-content/themes/mythemes | head -n 50
             echo "== style.css header =="
-            sed -n '1,20p' ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/style.css || true
+            sed -n '1,20p' /var/www/wordpress/wp-content/themes/mythemes/style.css || true
+SH
