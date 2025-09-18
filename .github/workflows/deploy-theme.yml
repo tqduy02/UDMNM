@@ -1,42 +1,60 @@
 name: Deploy WordPress Theme
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:                # chạy thủ công được
   push:
-    branches: [ "main" ]
-    paths: [ "themes/mythemes/**" ]
+    branches: [ "main" ]            # hoặc đổi nhánh bạn muốn
+    paths: [ "themes/mythemes/**" ] # chỉ trigger khi theme thay đổi
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Viết private key từ secret, loại bỏ CRLF (\r) nếu có
-      - name: Setup SSH key & known_hosts
+      # === Ghi private key từ secret (robust) + validate ===
+      - name: Setup SSH key & known_hosts (robust)
         shell: bash
         run: |
+          set -euo pipefail
+          umask 077
           mkdir -p ~/.ssh
-          # một số trình duyệt/Windows có thể chèn \r -> loại bỏ
-          printf '%s' "${{ secrets.SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+
+          # Ghi NGUYÊN VĂN secret (giữ newline)
+          cat > ~/.ssh/deploy_key <<'EOF'
+${{ secrets.SSH_KEY }}
+EOF
+
+          # Nếu ai đó dán secret dạng 1 dòng chứa ký tự \n -> chuyển về newline thật
+          if grep -q '\\n' ~/.ssh/deploy_key; then
+            sed -e 's/\\r//g' -e 's/\\n/\n/g' -i ~/.ssh/deploy_key
+          fi
+
+          # Loại CRLF nếu có và set permission
+          sed -i 's/\r$//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # thêm host key
-          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-          # xuất PUBLIC key từ private key để đối chiếu
+
+          echo "== First line of key file =="
+          head -n1 ~/.ssh/deploy_key
+
+          # Validate: trích public key -> fail tại đây nếu key hỏng/đặt passphrase
           ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
           echo "== PUBLIC KEY DERIVED FROM SECRET =="
           head -n1 ~/.ssh/deploy_key.pub
 
-      # Thử SSH với verbose để chẩn đoán
+          # Trust host để khỏi prompt
+          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      # === Thử SSH với -vvv để chẩn đoán khi cần ===
       - name: Debug SSH connectivity (-vvv)
         shell: bash
         run: |
           ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "whoami && hostname" || exit 1
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "whoami && hostname"
 
-      # Rsync theme
+      # === Rsync theme từ repo -> server ===
       - name: Rsync theme to server
         shell: bash
         run: |
@@ -45,7 +63,7 @@ jobs:
             themes/mythemes/ \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WP_PATH }}/wp-content/themes/mythemes/"
 
-      # Post-deploy
+      # === Hậu triển khai: chown + flush cache + (lần đầu) activate ===
       - name: Post-deploy on server
         shell: bash
         run: |
