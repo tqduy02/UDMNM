@@ -1,80 +1,98 @@
-name: Deploy WordPress Theme
+name: Deploy WP themes & plugins to GCP VM
 
 on:
-  workflow_dispatch:                # chạy thủ công được
   push:
-    branches: [ "main" ]            # hoặc đổi nhánh bạn muốn
-    paths: [ "themes/mythemes/**" ] # chỉ trigger khi theme thay đổi
+    branches: [ "main" ]
+    paths:
+      - "themes/**"
+      - "plugins/**"
+      - ".github/workflows/deploy-wp.yml"
+      - ".rsyncignore"
+  workflow_dispatch: {}
+
+env:
+  REMOTE_PATH: ${{ secrets.REMOTE_PATH }}   # /var/www/wordpress
+  WP_CLI_PATH: ${{ secrets.WP_CLI_PATH }}   # /var/www/wordpress
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # === Ghi private key từ secret (robust) + validate ===
-      - name: Setup SSH key & known_hosts (robust)
-        shell: bash
+      # (Tuỳ chọn) Build assets nếu có package.json trong theme/plugin
+      - name: Build theme/plugin assets (optional)
+        if: hashFiles('themes/**/package.json', 'plugins/**/package.json') != ''
         run: |
-          set -euo pipefail
-          umask 077
+          set -e
+          corepack enable || true
+          npm -v || (sudo apt-get update && sudo apt-get install -y npm)
+          for PKG in $(git ls-files "themes/**/package.json" "plugins/**/package.json"); do
+            DIR=$(dirname "$PKG")
+            echo "== Build in $DIR =="
+            (cd "$DIR" && npm ci || npm install && npm run build || true)
+          done
+
+      - name: Setup SSH
+        run: |
           mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-          # Ghi NGUYÊN VĂN secret (giữ newline)
-          cat > ~/.ssh/deploy_key <<'EOF'
-${{ secrets.SSH_KEY }}
-EOF
-
-          # Nếu ai đó dán secret dạng 1 dòng chứa ký tự \n -> chuyển về newline thật
-          if grep -q '\\n' ~/.ssh/deploy_key; then
-            sed -e 's/\\r//g' -e 's/\\n/\n/g' -i ~/.ssh/deploy_key
-          fi
-
-          # Loại CRLF nếu có và set permission
-          sed -i 's/\r$//' ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-          echo "== First line of key file =="
-          head -n1 ~/.ssh/deploy_key
-
-          # Validate: trích public key -> fail tại đây nếu key hỏng/đặt passphrase
-          ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
-          echo "== PUBLIC KEY DERIVED FROM SECRET =="
-          head -n1 ~/.ssh/deploy_key.pub
-
-          # Trust host để khỏi prompt
-          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-
-      # === Thử SSH với -vvv để chẩn đoán khi cần ===
-      - name: Debug SSH connectivity (-vvv)
-        shell: bash
+      - name: Ensure remote dirs exist
         run: |
-          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "whoami && hostname"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'"
 
-      # === Rsync theme từ repo -> server ===
-      - name: Rsync theme to server
-        shell: bash
+      - name: Rsync THEMES (if present)
+        if: hashFiles('themes/**') != ''
         run: |
-          rsync -avzr --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
-            themes/mythemes/ \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WP_PATH }}/wp-content/themes/mythemes/"
+          set -e
+          RSYNC_EXCLUDES=""
+          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+          rsync -az --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            $RSYNC_EXCLUDES \
+            themes/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/
 
-      # === Hậu triển khai: chown + flush cache + (lần đầu) activate ===
-      - name: Post-deploy on server
-        shell: bash
+      - name: Rsync PLUGINS (if present)
+        if: hashFiles('plugins/**') != ''
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'SH'
-            sudo chown -R www-data:www-data /var/www/wordpress/wp-content/themes/mythemes
-            sudo -u www-data wp --path=/var/www/wordpress cache flush || true
-            sudo -u www-data wp --path=/var/www/wordpress redis flush  || true
-            sudo -u www-data wp --path=/var/www/wordpress theme activate mythemes || true
+          set -e
+          RSYNC_EXCLUDES=""
+          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+          rsync -az --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            $RSYNC_EXCLUDES \
+            plugins/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/
 
-            echo "== Remote theme dir =="
-            ls -la /var/www/wordpress/wp-content/themes/mythemes | head -n 50
-            echo "== style.css header =="
-            sed -n '1,20p' /var/www/wordpress/wp-content/themes/mythemes/style.css || true
+      - name: Put site in maintenance mode
+        continue-on-error: true
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode activate --allow-root || true"
+
+      - name: Post-deploy tasks (flush cache & permalinks)
+        continue-on-error: true
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'EOF'
+          set -e
+          cd "${WP_CLI_PATH:-${REMOTE_PATH}}"
+          wp cache flush --allow-root || true
+          wp rewrite flush --hard --allow-root || true
+          EOF
+
+      - name: Disable maintenance mode
+        continue-on-error: true
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode deactivate --allow-root || true"
+
+      - name: Fix permissions (optional)
+        continue-on-error: true
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "sudo chown -R $USER:www-data '${{ env.REMOTE_PATH }}/wp-content' && sudo find '${{ env.REMOTE_PATH }}/wp-content' -type d -exec chmod 775 {} \; && sudo find '${{ env.REMOTE_PATH }}/wp-content' -type f -exec chmod 664 {} \; || true"
