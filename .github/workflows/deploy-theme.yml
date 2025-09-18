@@ -1,39 +1,42 @@
 name: Deploy WordPress Theme
 
 on:
-  workflow_dispatch:                # cho phép Run workflow thủ công
+  workflow_dispatch:
   push:
-    branches: [ "main" ]            # chạy khi push vào main
-    paths: [ "themes/mythemes/**" ] # chỉ trigger khi theme thay đổi
+    branches: [ "main" ]
+    paths: [ "themes/mythemes/**" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Lấy code từ repo
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Ghi PRIVATE key trực tiếp từ secret và trust host
+      # Viết private key từ secret, loại bỏ CRLF (\r) nếu có
       - name: Setup SSH key & known_hosts
         shell: bash
         run: |
           mkdir -p ~/.ssh
-          # SSH_KEY = toàn bộ nội dung private key (BEGIN...END)
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          # một số trình duyệt/Windows có thể chèn \r -> loại bỏ
+          printf '%s' "${{ secrets.SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # thêm host key để khỏi bị prompt yes/no
+          # thêm host key
           ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          # xuất PUBLIC key từ private key để đối chiếu
+          ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
+          echo "== PUBLIC KEY DERIVED FROM SECRET =="
+          head -n1 ~/.ssh/deploy_key.pub
 
-      # 3) (Tuỳ chọn) Kiểm tra SSH tới VM
-      - name: Debug SSH connectivity
+      # Thử SSH với verbose để chẩn đoán
+      - name: Debug SSH connectivity (-vvv)
         shell: bash
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "whoami && hostname && ls -la ${{ secrets.WP_PATH }}/wp-content/themes || true"
+          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "whoami && hostname" || exit 1
 
-      # 4) Rsync theme từ repo -> máy chủ
+      # Rsync theme
       - name: Rsync theme to server
         shell: bash
         run: |
@@ -42,7 +45,7 @@ jobs:
             themes/mythemes/ \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WP_PATH }}/wp-content/themes/mythemes/"
 
-      # 5) Hậu triển khai: chown + flush cache + (lần đầu) activate theme + show file
+      # Post-deploy
       - name: Post-deploy on server
         shell: bash
         run: |
@@ -51,10 +54,10 @@ jobs:
             sudo chown -R www-data:www-data /var/www/wordpress/wp-content/themes/mythemes
             sudo -u www-data wp --path=/var/www/wordpress cache flush || true
             sudo -u www-data wp --path=/var/www/wordpress redis flush  || true
-            # kích hoạt nếu chưa (không lỗi nếu đã active)
             sudo -u www-data wp --path=/var/www/wordpress theme activate mythemes || true
 
             echo "== Remote theme dir =="
             ls -la /var/www/wordpress/wp-content/themes/mythemes | head -n 50
             echo "== style.css header =="
             sed -n '1,20p' /var/www/wordpress/wp-content/themes/mythemes/style.css || true
+SH
