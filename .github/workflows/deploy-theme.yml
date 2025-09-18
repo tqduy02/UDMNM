@@ -1,10 +1,10 @@
 name: Deploy WordPress Theme
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:          # cho phép bấm Run workflow thủ công
   push:
     branches: [ "main" ]
-    paths: [ "themes/mythemes/**" ]   # repo của bạn
+    paths: [ "themes/mythemes/**" ]   # chỉ deploy khi có thay đổi trong themes/mythemes
 
 jobs:
   deploy:
@@ -15,23 +15,24 @@ jobs:
 
       - name: Debug — show theme files in repo
         run: |
-          echo "== repo tree =="
+          echo "== repo root =="
           ls -la
           echo "== themes/mythemes =="
           ls -laR themes/mythemes || true
 
-      # FIX: dùng tag có 'v'
-      - name: Rsync theme to server
-        uses: burnett01/rsync-deployments@v6.0
-        with:
-          switches: -avzr --delete
-          path: themes/mythemes/                                       # đường dẫn trong repo
-          remote_path: ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/ # đích trên server
-          remote_host: ${{ secrets.SSH_HOST }}
-          remote_user: ${{ secrets.SSH_USER }}
-          remote_key:  ${{ secrets.SSH_KEY }}
+      # Copy theme từ repo -> VM bằng SSH Deploy (rsync)
+      - name: Upload theme via SSH (rsync)
+        uses: easingthemes/ssh-deploy@v2.2.11
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          ARGS: "-avzr --delete"
+          SOURCE: "themes/mythemes/"                     # đường dẫn TRONG REPO
+          REMOTE_HOST: ${{ secrets.SSH_HOST }}
+          REMOTE_USER: ${{ secrets.SSH_USER }}
+          TARGET: "${{ secrets.WP_PATH }}/wp-content/themes/mythemes/"  # đích TRÊN VM
 
-      - name: Post-deploy — set owner, flush cache, activate theme
+      # Sau khi upload: chown + flush cache + (lần đầu) activate theme
+      - name: Post-deploy on VM
         uses: appleboy/ssh-action@v1.0.3
         with:
           host:     ${{ secrets.SSH_HOST }}
@@ -43,6 +44,7 @@ jobs:
             sudo -u www-data wp --path=${{ secrets.WP_PATH }} redis flush  || true
             sudo -u www-data wp --path=${{ secrets.WP_PATH }} theme activate mythemes || true
 
+      # Liệt kê để chắc chắn file đã tới server
       - name: Debug — list files on server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -50,5 +52,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key:      ${{ secrets.SSH_KEY }}
           script: |
+            echo "== Remote theme dir =="
             ls -la ${{ secrets.WP_PATH }}/wp-content/themes/mythemes | head -n 50
+            echo "== style.css header =="
             sed -n '1,20p' ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/style.css || true
