@@ -1,0 +1,41 @@
+name: Deploy WordPress Theme
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "mythemes/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 1) Rsync theme lên server (đồng bộ, xóa file thừa)
+      - name: Rsync theme to server
+        uses: burnett01/rsync-deployments@6.0
+        with:
+          switches: -avzr --delete
+          path: mythemes/
+          remote_path: ${{ secrets.WP_PATH }}/wp-content/themes/mythemes/
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key:  ${{ secrets.SSH_KEY }}
+
+      # 2) Chuyển owner -> www-data & clear cache, active theme (lần đầu)
+      - name: Post-deploy commands (ownership, cache flush, activate theme)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key:      ${{ secrets.SSH_KEY }}
+          script: |
+            sudo chown -R www-data:www-data ${{ secrets.WP_PATH }}/wp-content/themes/mythemes
+            # Flush caches (nếu có Redis / Cache Enabler)
+            sudo -u www-data wp --path=${{ secrets.WP_PATH }} cache flush || true
+            sudo -u www-data wp --path=${{ secrets.WP_PATH }} redis flush  || true
+            # Kích hoạt theme (chỉ cần lần đầu; để an toàn dùng || true)
+            sudo -u www-data wp --path=${{ secrets.WP_PATH }} theme activate mythemes || true
