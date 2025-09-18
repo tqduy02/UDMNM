@@ -60,4 +60,3 @@ jobs:
             ls -la /var/www/wordpress/wp-content/themes/mythemes | head -n 50
             echo "== style.css header =="
             sed -n '1,20p' /var/www/wordpress/wp-content/themes/mythemes/style.css || true
-SH
