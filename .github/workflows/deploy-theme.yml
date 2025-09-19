@@ -8,14 +8,14 @@ on:
       - ".github/workflows/deploy-theme.yml"
   workflow_dispatch: {}
 
-env:
-  REMOTE_PATH: /var/www/wordpress
-  THEME_DIR: mythemes                          # ⬅️ đổi nếu tên folder theme khác
-  THEME_PATH: /var/www/wordpress/wp-content/themes/${{ env.THEME_DIR }}
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:                              # 👈 Đặt env ở đây (của job)
+      REMOTE_PATH: /var/www/wordpress
+      THEME_DIR: mythemes             # ⬅️ đổi nếu theme của bạn tên khác
+      THEME_PATH: /var/www/wordpress/wp-content/themes/mythemes
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # (optional) Build assets nếu theme có package.json
+      # (optional) build assets nếu theme có package.json
       - name: Build theme assets (optional)
         if: hashFiles('wp-content/themes/**/package.json') != ''
         run: |
@@ -42,19 +42,19 @@ jobs:
       - name: Ensure remote theme dir exists
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p '${{ env.THEME_PATH }}'"
+            "mkdir -p '${THEME_PATH}'"
 
       - name: Rsync theme (safe)
         run: |
           rsync -az --delete \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            "wp-content/themes/${{ env.THEME_DIR }}/" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.THEME_PATH }}/"
+            "wp-content/themes/${THEME_DIR}/" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${THEME_PATH}/"
 
       - name: Post-deploy (flush cache & permalinks)
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "cd '${{ env.REMOTE_PATH }}' && \
+            "cd '${REMOTE_PATH}' && \
              wp cache flush || true && \
              wp rewrite flush --hard || true"
 
