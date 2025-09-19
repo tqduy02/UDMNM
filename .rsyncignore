@@ -1,20 +1,20 @@
-# Không deploy core WP (chỉ giữ wp-content và wp-config)
+# Không đụng vào core
 wp-admin/
 wp-includes/
-wp-config.php
+# Giữ toàn bộ file core gốc
+wp-*.php
 index.php
 license.txt
 readme.html
 xmlrpc.php
 
-# Không sync uploads (tránh ghi đè ảnh)
+# Không ghi đè media
 wp-content/uploads/
 
-# Cache / logs / tạm
-*.log
-*.tmp
-*.swp
+# Rác/tạm
 node_modules/
 vendor/
+*.log
+*.tmp
 .DS_Store
 Thumbs.db
