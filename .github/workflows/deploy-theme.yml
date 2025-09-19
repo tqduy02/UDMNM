@@ -4,14 +4,15 @@ on:
   push:
     branches: [ "main" ]
     paths:
+      - "themes/**"
       - "wp-content/themes/**"
       - ".github/workflows/deploy-theme.yml"
   workflow_dispatch: {}
 
 env:
-  REMOTE_PATH: /var/www/wordpress
-  WP_PATH: /var/www/wordpress
-  THEME_DIR: wp-content/themes   # chỉ đồng bộ theme
+  REMOTE_PATH: /var/www/wordpress           # đường dẫn WP trên server
+  WP_PATH:     /var/www/wordpress
+  LOCAL_THEME_ROOT: themes                   # <== đổi thành 'wp-content/themes' nếu repo của bạn dùng cấu trúc đó
 
 jobs:
   deploy:
@@ -27,42 +28,56 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
+      # Guard: nếu không có thư mục theme ở repo => kết thúc job & KHÔNG fail
+      - name: Guard local theme folder
+        run: |
+          if [ ! -d "${{ env.LOCAL_THEME_ROOT }}" ]; then
+            echo "::notice ::No local theme folder '${{ env.LOCAL_THEME_ROOT }}'. Nothing to deploy."
+            exit 0
+          fi
+
+      # Tạo thư mục đích trên server (chặn lỗi rsync code 23 do thiếu thư mục)
+      - name: Ensure remote path exists
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes'"
+
       # (optional) build assets nếu theme có package.json
       - name: Build theme assets
-        if: hashFiles('wp-content/themes/**/package.json') != ''
+        if: hashFiles(format('{0}/**/package.json', env.LOCAL_THEME_ROOT)) != ''
         run: |
           set -e
           corepack enable || true
-          for PKG in $(git ls-files "wp-content/themes/**/package.json"); do
+          for PKG in $(git ls-files "${{ env.LOCAL_THEME_ROOT }}/**/package.json"); do
             DIR=$(dirname "$PKG")
             echo "== Build in $DIR =="
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync theme only (SAFE)
+      - name: Rsync theme only (SAFE, debug on)
         run: |
-          set -e
-          rsync -az --delete \
+          set -euxo pipefail
+          rsync -azvv --delete \
             --omit-dir-times --no-perms --no-owner --no-group \
             --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
+            --exclude ".git/" --exclude "node_modules/" \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            "./${{ env.THEME_DIR }}/" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/${{ env.THEME_DIR }}/"
+            "${{ env.LOCAL_THEME_ROOT }}/" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/"
 
       - name: Fix permissions + post-deploy
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'EOF'
           set -e
           cd '${{ env.WP_PATH }}'
-          # sửa quyền theme
           sudo chown -R deployer:www-data wp-content/themes
           sudo find wp-content/themes -type d -exec chmod 2775 {} \;
           sudo find wp-content/themes -type f -exec chmod 0664 {} \;
 
-          # self-heal: cài plugin tối thiểu (không bắt buộc)
           wp maintenance-mode activate || true
+          # Giữ site ổn định, chỉ bật plugin cần thiết bạn muốn bảo toàn:
           wp plugin install webp-converter-for-media --activate || true
-          # Redis chỉ khi cần:
+          # Redis chỉ bật khi đã cài php-redis:
           # wp plugin install redis-cache --activate || true
           # wp redis enable || true
 
