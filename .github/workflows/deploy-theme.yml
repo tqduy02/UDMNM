@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       # (Optional) Build assets nếu có package.json
-      - name: Build theme/plugin assets (optional)
+      - name: Build theme or plugin assets (optional)
         if: hashFiles('themes/**/package.json', 'plugins/**/package.json') != ''
         run: |
           set -e
@@ -44,16 +44,12 @@ jobs:
 
       - name: Ensure remote dirs exist (no sudo)
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            set -e
-            mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'
-          "
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "set -e; mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'"
 
       - name: Enable maintenance mode (optional)
         continue-on-error: true
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode activate || true"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode activate || true"
 
       - name: Rsync THEMES
         if: hashFiles('themes/**') != ''
@@ -61,7 +57,7 @@ jobs:
           set -e
           RSYNC_EXCLUDES=""
           [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-          # Luôn exclude drop-in Redis dù repo không có:
+          # Luôn exclude drop-in Redis nếu có
           RSYNC_EXCLUDES="$RSYNC_EXCLUDES --exclude 'object-cache.php'"
 
           rsync -az --delete \
@@ -86,29 +82,19 @@ jobs:
             $RSYNC_EXCLUDES \
             plugins/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/
 
-      - name: Post-deploy: flush cache & permalinks
+      - name: Post-deploy flush
         continue-on-error: true
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'EOF'
-          set -e
-          cd "${WP_CLI_PATH:-${REMOTE_PATH}}"
-          # Xóa cache ở tầng WordPress (an toàn, hoạt động cả khi có Redis)
-          wp cache flush || true
-          # Làm mới permalink rules
-          wp rewrite flush --hard || true
-          EOF
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "set -e; cd '${{ env.WP_CLI_PATH }}'; wp cache flush || true; wp rewrite flush --hard || true"
 
       - name: Disable maintenance mode
         continue-on-error: true
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode deactivate || true"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode deactivate || true"
 
-      # (Tùy chọn) Smoke test trang chủ: kiểm tra có trả về 200 và không có 'critical error'
-      - name: Smoke test
+      - name: Smoke test homepage
         continue-on-error: true
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://beingblog.dpdns.org/ || true)
           echo "HTTP Status: $STATUS"
           curl -s https://beingblog.dpdns.org/ | ( ! grep -qi "critical error" ) && echo "No critical error string found" || echo "Possible critical error detected"
-
