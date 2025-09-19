@@ -1,15 +1,13 @@
-# Không bao giờ đè drop-in Redis
+# VCS / CI
+.git/
+.github/
+.gitignore
+
+# WordPress runtime - KHÔNG deploy
+wp-content/uploads/**
+wp-content/upgrade/**
 wp-content/object-cache.php
+wp-content/plugins/**
 
-# Không chạm media phía server
-wp-content/uploads/
-
-# Build/cache tạm
-**/node_modules/
-**/*.map
-**/*.log
-.DS_Store
-
-# Môi trường cục bộ
-*.env
-.env.*
+# Nếu có plugin tự viết trong repo, hãy EXCLUDE chung
+# rồi thêm bước rsync RIÊNG cho plugin đó
