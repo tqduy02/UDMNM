@@ -1,22 +1,28 @@
-name: Deploy WP Theme (safe)
+name: Deploy WP (theme + plugins safe)
 
 on:
   push:
     branches: [ "main" ]
     paths:
       - "themes/**"
-      - "wp-content/themes/**"
+      - "plugins/**"
       - ".github/workflows/deploy-theme.yml"
+      - ".rsyncignore"
   workflow_dispatch: {}
 
 env:
-  REMOTE_PATH: /var/www/wordpress           # đường dẫn WP trên server
+  # Đường dẫn WordPress trên server
+  REMOTE_PATH: /var/www/wordpress
   WP_PATH:     /var/www/wordpress
-  LOCAL_THEME_ROOT: themes                   # <== đổi thành 'wp-content/themes' nếu repo của bạn dùng cấu trúc đó
+
+  # Cấu trúc repo của bạn
+  LOCAL_THEME_ROOT: themes                 # Theme nằm ở ./themes/mythemes/
+  LOCAL_PLUGINS_ROOT: plugins              # Plugins tuỳ biến nằm ở ./plugins/
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,22 +34,22 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # Guard: nếu không có thư mục theme ở repo => kết thúc job & KHÔNG fail
-      - name: Guard local theme folder
+      # ====== THEME ======
+      - name: Guard theme folder exists
         run: |
           if [ ! -d "${{ env.LOCAL_THEME_ROOT }}" ]; then
             echo "::notice ::No local theme folder '${{ env.LOCAL_THEME_ROOT }}'. Nothing to deploy."
             exit 0
           fi
 
-      # Tạo thư mục đích trên server (chặn lỗi rsync code 23 do thiếu thư mục)
-      - name: Ensure remote path exists
+      - name: Ensure remote theme path exists
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes'"
 
-      # (optional) build assets nếu theme có package.json
-      - name: Build theme assets
+      # Build assets nếu có package.json bên trong theme
+      - name: Build theme assets (optional)
         if: hashFiles(format('{0}/**/package.json', env.LOCAL_THEME_ROOT)) != ''
         run: |
           set -e
@@ -54,37 +60,69 @@ jobs:
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync theme only (SAFE, debug on)
+      - name: Rsync THEME (safe, scoped, with delete)
         run: |
-          set -euxo pipefail
+          set -euo pipefail
+          RSYNC_EXCLUDES=""
+          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+
           rsync -azvv --delete \
             --omit-dir-times --no-perms --no-owner --no-group \
             --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
+            $RSYNC_EXCLUDES \
             --exclude ".git/" --exclude "node_modules/" \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
             "${{ env.LOCAL_THEME_ROOT }}/" \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/"
 
+      # ====== PLUGINS (NON-DESTRUCTIVE) ======
+      - name: Guard plugins folder exists
+        run: |
+          if [ ! -d "${{ env.LOCAL_PLUGINS_ROOT }}" ]; then
+            echo "::notice ::No local plugins folder '${{ env.LOCAL_PLUGINS_ROOT }}'. Skipping plugin sync."
+            exit 0
+          fi
+
+      - name: Ensure remote plugins path exists
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/plugins'"
+
+      - name: Rsync PLUGINS (safe, NO delete)
+        run: |
+          set -euo pipefail
+          rsync -az \
+            --omit-dir-times --no-perms --no-owner --no-group \
+            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
+            --exclude ".git/" --exclude "node_modules/" \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            "${{ env.LOCAL_PLUGINS_ROOT }}/" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/"
+
+      # ====== FIX PERMS + POST DEPLOY ======
       - name: Fix permissions + post-deploy
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'EOF'
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'EOF'
           set -e
           cd '${{ env.WP_PATH }}'
-          sudo chown -R deployer:www-data wp-content/themes
-          sudo find wp-content/themes -type d -exec chmod 2775 {} \;
-          sudo find wp-content/themes -type f -exec chmod 0664 {} \;
 
+          # Quyền cho theme & plugin
+          sudo chown -R deployer:www-data wp-content/themes wp-content/plugins
+          sudo find wp-content/themes  -type d -exec chmod 2775 {} \;
+          sudo find wp-content/themes  -type f -exec chmod 0664 {} \;
+          sudo find wp-content/plugins -type d -exec chmod 2775 {} \;
+          sudo find wp-content/plugins -type f -exec chmod 0664 {} \;
+
+          # Post-deploy
           wp maintenance-mode activate || true
-          # Giữ site ổn định, chỉ bật plugin cần thiết bạn muốn bảo toàn:
-          wp plugin install webp-converter-for-media --activate || true
-          # Redis chỉ bật khi đã cài php-redis:
-          # wp plugin install redis-cache --activate || true
-          # wp redis enable || true
-
+          # (Optional) kích hoạt plugin có trong repo:
+          # wp plugin activate your-plugin-slug-1 your-plugin-slug-2 || true
           wp cache flush || true
           wp rewrite flush --hard || true
           wp maintenance-mode deactivate || true
-          EOF
+EOF
 
       - name: Smoke test
         continue-on-error: true
