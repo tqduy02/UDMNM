@@ -19,7 +19,7 @@
         $lang = function_exists('pll_current_language') ? pll_current_language('slug') : 'en';
         $cf7_map = [
           'en' => ['id' => '48faa3a', 'title' => __('Newsletter', 'mythemes')],
-          'vi' => ['id' => 'd2edc2c', 'title' => __('Newsletter VI', 'mythemes')], // ví dụ: 'Bản tin'
+          'vi' => ['id' => 'd2edc2c', 'title' => __('Newsletter VI', 'mythemes')],
         ];
         $cfg = isset($cf7_map[$lang]) ? $cf7_map[$lang] : $cf7_map['en'];
 
@@ -34,13 +34,12 @@
 
   </div>
 
-  <!-- Footer bottom (copyright) -->
+  <!-- Footer bottom -->
   <div class="footer-bottom border-top border-secondary">
     <div class="container">
-      <div class="d-flex flex-column flex-lg-row justify-content-between align-items-center py-3 small text-white-50 gap-2">
+      <div class="d-flex flex-column flex-lg-row justify-content-between align-items-center pt-1 pb-0 small text-white-50 gap-2">
         <div>
           <?php
-          /* translators: 1: year, 2: site name, 3: site tagline */
           printf(
             esc_html__('© %1$s %2$s — %3$s.', 'mythemes'),
             esc_html( date_i18n('Y') ),
@@ -51,7 +50,6 @@
         </div>
         <div>
           <?php
-          /* translators: %s: designer/agency name */
           printf(
             esc_html__('Design by %s — All rights reserved.', 'mythemes'),
             'AssiaGroupe'
