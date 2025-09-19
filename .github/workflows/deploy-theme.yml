@@ -11,13 +11,11 @@ on:
   workflow_dispatch: {}
 
 env:
-  # Đường dẫn WordPress trên server
-  REMOTE_PATH: /var/www/wordpress
+  REMOTE_PATH: /var/www/wordpress    # Thư mục WP trên server
   WP_PATH:     /var/www/wordpress
 
-  # Cấu trúc repo của bạn
-  LOCAL_THEME_ROOT: themes                 # Theme nằm ở ./themes/mythemes/
-  LOCAL_PLUGINS_ROOT: plugins              # Plugins tuỳ biến nằm ở ./plugins/
+  LOCAL_THEME_ROOT: themes           # Repo của bạn: themes/mythemes/
+  LOCAL_PLUGINS_ROOT: plugins        # Repo có thể có: plugins/
 
 jobs:
   deploy:
@@ -34,23 +32,15 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # ====== THEME ======
-      - name: Guard theme folder exists
-        run: |
-          if [ ! -d "${{ env.LOCAL_THEME_ROOT }}" ]; then
-            echo "::notice ::No local theme folder '${{ env.LOCAL_THEME_ROOT }}'. Nothing to deploy."
-            exit 0
-          fi
-
+      # ===== THEME =====
       - name: Ensure remote theme path exists
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes'"
 
-      # Build assets nếu có package.json bên trong theme
       - name: Build theme assets (optional)
-        if: hashFiles(format('{0}/**/package.json', env.LOCAL_THEME_ROOT)) != ''
+        if: ${{ hashFiles(format('{0}/**/package.json', env.LOCAL_THEME_ROOT)) != '' }}
         run: |
           set -e
           corepack enable || true
@@ -60,12 +50,12 @@ jobs:
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync THEME (safe, scoped, with delete)
+      - name: Rsync THEME (scoped, with delete)
+        if: ${{ hashFiles(format('{0}/**', env.LOCAL_THEME_ROOT)) != '' }}
         run: |
           set -euo pipefail
           RSYNC_EXCLUDES=""
           [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-
           rsync -azvv --delete \
             --omit-dir-times --no-perms --no-owner --no-group \
             --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
@@ -75,21 +65,15 @@ jobs:
             "${{ env.LOCAL_THEME_ROOT }}/" \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/"
 
-      # ====== PLUGINS (NON-DESTRUCTIVE) ======
-      - name: Guard plugins folder exists
-        run: |
-          if [ ! -d "${{ env.LOCAL_PLUGINS_ROOT }}" ]; then
-            echo "::notice ::No local plugins folder '${{ env.LOCAL_PLUGINS_ROOT }}'. Skipping plugin sync."
-            exit 0
-          fi
-
+      # ===== PLUGINS (NON-DESTRUCTIVE) =====
       - name: Ensure remote plugins path exists
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/plugins'"
 
-      - name: Rsync PLUGINS (safe, NO delete)
+      - name: Rsync PLUGINS (NO delete)
+        if: ${{ hashFiles(format('{0}/**', env.LOCAL_PLUGINS_ROOT)) != '' }}
         run: |
           set -euo pipefail
           rsync -az \
@@ -100,29 +84,20 @@ jobs:
             "${{ env.LOCAL_PLUGINS_ROOT }}/" \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/"
 
-      # ====== FIX PERMS + POST DEPLOY ======
+      # ===== PERMS + POST DEPLOY =====
       - name: Fix permissions + post-deploy
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'EOF'
-          set -e
-          cd '${{ env.WP_PATH }}'
-
-          # Quyền cho theme & plugin
-          sudo chown -R deployer:www-data wp-content/themes wp-content/plugins
-          sudo find wp-content/themes  -type d -exec chmod 2775 {} \;
-          sudo find wp-content/themes  -type f -exec chmod 0664 {} \;
-          sudo find wp-content/plugins -type d -exec chmod 2775 {} \;
-          sudo find wp-content/plugins -type f -exec chmod 0664 {} \;
-
-          # Post-deploy
-          wp maintenance-mode activate || true
-          # (Optional) kích hoạt plugin có trong repo:
-          # wp plugin activate your-plugin-slug-1 your-plugin-slug-2 || true
-          wp cache flush || true
-          wp rewrite flush --hard || true
-          wp maintenance-mode deactivate || true
-EOF
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -e; cd '${{ env.WP_PATH }}'; \
+             sudo chown -R deployer:www-data wp-content/themes wp-content/plugins; \
+             sudo find wp-content/themes  -type d -exec chmod 2775 {} \; ; \
+             sudo find wp-content/themes  -type f -exec chmod 0664 {} \; ; \
+             sudo find wp-content/plugins -type d -exec chmod 2775 {} \; ; \
+             sudo find wp-content/plugins -type f -exec chmod 0664 {} \; ; \
+             wp maintenance-mode activate || true; \
+             wp cache flush || true; \
+             wp rewrite flush --hard || true; \
+             wp maintenance-mode deactivate || true"
 
       - name: Smoke test
         continue-on-error: true
