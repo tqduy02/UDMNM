@@ -1,39 +1,24 @@
-name: Deploy WP themes & plugins to GCP VM
+name: Deploy WordPress (themes + post-steps)
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - "themes/**"
-      - "plugins/**"
+      - "wp-content/themes/**"
       - ".github/workflows/deploy-wp.yml"
       - ".rsyncignore"
   workflow_dispatch: {}
 
 env:
-  REMOTE_PATH: ${{ secrets.REMOTE_PATH }}   # /var/www/wordpress
-  WP_CLI_PATH: ${{ secrets.WP_CLI_PATH }}   # /var/www/wordpress
+  REMOTE_PATH: /var/www/wordpress
+  WP_PATH: /var/www/wordpress
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # (Optional) Build assets nếu có package.json
-      - name: Build theme or plugin assets (optional)
-        if: hashFiles('themes/**/package.json', 'plugins/**/package.json') != ''
-        run: |
-          set -e
-          corepack enable || true
-          npm -v || (sudo apt-get update && sudo apt-get install -y npm)
-          for PKG in $(git ls-files "themes/**/package.json" "plugins/**/package.json"); do
-            DIR=$(dirname "$PKG")
-            echo "== Build in $DIR =="
-            (cd "$DIR" && npm ci || npm install && npm run build || true)
-          done
 
       - name: Setup SSH
         run: |
@@ -42,59 +27,61 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Ensure remote dirs exist (no sudo)
+      # (Tuỳ chọn) Build assets trong theme nếu có package.json
+      - name: Build theme assets (optional)
+        if: hashFiles('wp-content/themes/**/package.json') != ''
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "set -e; mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'"
+          set -e
+          corepack enable || true
+          for PKG in $(git ls-files "wp-content/themes/**/package.json"); do
+            DIR=$(dirname "$PKG")
+            echo "== Build in $DIR =="
+            (cd "$DIR" && npm ci || npm install && npm run build || true)
+          done
 
-      - name: Enable maintenance mode (optional)
-        continue-on-error: true
-        run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode activate || true"
-
-      - name: Rsync THEMES
-        if: hashFiles('themes/**') != ''
+      - name: Rsync repo (respect .rsyncignore)
         run: |
           set -e
           RSYNC_EXCLUDES=""
           [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-          # Luôn exclude drop-in Redis nếu có
-          RSYNC_EXCLUDES="$RSYNC_EXCLUDES --exclude 'object-cache.php'"
 
           rsync -az --delete \
             --omit-dir-times --no-perms --no-owner --no-group \
             --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
             $RSYNC_EXCLUDES \
-            themes/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/
 
-      - name: Rsync PLUGINS
-        if: hashFiles('plugins/**') != ''
+      # (Tuỳ chọn) Nếu bạn có plugin tự viết TRONG repo và muốn deploy nó,
+      # thì thêm 1 bước rsync riêng cho đúng thư mục, KHÔNG --delete toàn wp-content/plugins:
+      # - name: Rsync custom plugin (optional)
+      #   run: |
+      #     rsync -az -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+      #       wp-content/plugins/my-plugin/ \
+      #       ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/my-plugin/
+
+      - name: Post-deploy: self-heal (plugins/cache/permalinks)
         run: |
-          set -e
-          RSYNC_EXCLUDES=""
-          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-          RSYNC_EXCLUDES="$RSYNC_EXCLUDES --exclude 'object-cache.php'"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            set -e
+            cd '${{ env.WP_PATH }}'
+            # Bật maintenance tạm (không bắt buộc)
+            wp maintenance-mode activate || true
 
-          rsync -az --delete \
-            --omit-dir-times --no-perms --no-owner --no-group \
-            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            $RSYNC_EXCLUDES \
-            plugins/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/
+            # Đảm bảo 2 plugin cốt lõi tồn tại & active
+            wp plugin install redis-cache --activate || true
+            wp plugin install webp-converter-for-media --activate || true
 
-      - name: Post-deploy flush
+            # Bật drop-in Redis và dọn cache/link
+            wp redis enable || true
+            wp cache flush || true
+            wp rewrite flush --hard || true
+
+            # Tắt maintenance
+            wp maintenance-mode deactivate || true
+          "
+
+      - name: Smoke test
         continue-on-error: true
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "set -e; cd '${{ env.WP_CLI_PATH }}'; wp cache flush || true; wp rewrite flush --hard || true"
-
-      - name: Disable maintenance mode
-        continue-on-error: true
-        run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode deactivate || true"
-
-      - name: Smoke test homepage
-        continue-on-error: true
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://beingblog.dpdns.org/ || true)
-          echo "HTTP Status: $STATUS"
-          curl -s https://beingblog.dpdns.org/ | ( ! grep -qi "critical error" ) && echo "No critical error string found" || echo "Possible critical error detected"
+          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qi "critical error" ) && echo "OK" || (echo "Check site error"; exit 0)
