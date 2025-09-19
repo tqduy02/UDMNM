@@ -40,18 +40,19 @@ jobs:
           done
 
       - name: Rsync (respect .rsyncignore)
-          run: |
-            set -e
-            RSYNC_EXCLUDES=""
-            [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-        
-            rsync -az --delete \
-              --omit-dir-times --no-perms --no-owner --no-group \
-              --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
-              -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-              $RSYNC_EXCLUDES \
-              ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/wordpress/"
+        run: |
+          set -e
+          RSYNC_EXCLUDES=""
+          if [ -f ".rsyncignore" ]; then
+            RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+          fi
 
+          rsync -az --delete \
+            --omit-dir-times --no-perms --no-owner --no-group \
+            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            $RSYNC_EXCLUDES \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/"
 
       - name: Post-deploy (plugins + cache + permalinks)
         run: |
