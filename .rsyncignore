@@ -3,11 +3,20 @@
 .github/
 .gitignore
 
-# WordPress runtime - KHÔNG deploy
+# Core WP - KHÔNG đụng tới
+index.php
+wp-*.php
+wp-admin/**
+wp-includes/**
+
+# Runtime trên server - KHÔNG đụng tới
 wp-content/uploads/**
 wp-content/upgrade/**
 wp-content/object-cache.php
+wp-content/cache/**
+
+# Nếu plugin KHÔNG quản lý bằng repo, đừng rsync chúng
 wp-content/plugins/**
 
-# Nếu có plugin tự viết trong repo, hãy EXCLUDE chung
-# rồi thêm bước rsync RIÊNG cho plugin đó
+# Bất cứ log/artefact nào khác
+*.log
