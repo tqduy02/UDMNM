@@ -1,22 +1,20 @@
-# VCS / CI
-.git/
-.github/
-.gitignore
-
-# Core WP - KHÔNG đụng tới
+# Không deploy core WP (chỉ giữ wp-content và wp-config)
+wp-admin/
+wp-includes/
+wp-config.php
 index.php
-wp-*.php
-wp-admin/**
-wp-includes/**
+license.txt
+readme.html
+xmlrpc.php
 
-# Runtime trên server - KHÔNG đụng tới
-wp-content/uploads/**
-wp-content/upgrade/**
-wp-content/object-cache.php
-wp-content/cache/**
+# Không sync uploads (tránh ghi đè ảnh)
+wp-content/uploads/
 
-# Nếu plugin KHÔNG quản lý bằng repo, đừng rsync chúng
-wp-content/plugins/**
-
-# Bất cứ log/artefact nào khác
+# Cache / logs / tạm
 *.log
+*.tmp
+*.swp
+node_modules/
+vendor/
+.DS_Store
+Thumbs.db
