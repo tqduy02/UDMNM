@@ -1,21 +1,18 @@
-name: Deploy WP (theme + plugins safe)
+name: Deploy WP themes & plugins to GCP VM
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - "themes/**"
       - "plugins/**"
-      - ".github/workflows/deploy-theme.yml"
+      - ".github/workflows/deploy-wp.yml"
       - ".rsyncignore"
   workflow_dispatch: {}
 
 env:
-  REMOTE_PATH: /var/www/wordpress    # Thư mục WP trên server
-  WP_PATH:     /var/www/wordpress
-
-  LOCAL_THEME_ROOT: themes           # Repo của bạn: themes/mythemes/
-  LOCAL_PLUGINS_ROOT: plugins        # Repo có thể có: plugins/
+  REMOTE_PATH: ${{ secrets.REMOTE_PATH }} # /var/www/wordpress
+  WP_CLI_PATH: ${{ secrets.WP_CLI_PATH }} # /var/www/wordpress
 
 jobs:
   deploy:
@@ -25,81 +22,79 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-
-      # ===== THEME =====
-      - name: Ensure remote theme path exists
-        run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes'"
-
-      - name: Build theme assets (optional)
-        if: ${{ hashFiles(format('{0}/**/package.json', env.LOCAL_THEME_ROOT)) != '' }}
+      # (Optional) Build assets nếu có package.json
+      - name: Build theme or plugin assets (optional)
+        if: hashFiles('themes/**/package.json', 'plugins/**/package.json') != ''
         run: |
           set -e
           corepack enable || true
-          for PKG in $(git ls-files "${{ env.LOCAL_THEME_ROOT }}/**/package.json"); do
+          npm -v || (sudo apt-get update && sudo apt-get install -y npm)
+          for PKG in $(git ls-files "themes/**/package.json" "plugins/**/package.json"); do
             DIR=$(dirname "$PKG")
             echo "== Build in $DIR =="
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync THEME (scoped, with delete)
-        if: ${{ hashFiles(format('{0}/**', env.LOCAL_THEME_ROOT)) != '' }}
+      - name: Setup SSH
         run: |
-          set -euo pipefail
-          RSYNC_EXCLUDES=""
-          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-          rsync -azvv --delete \
-            --omit-dir-times --no-perms --no-owner --no-group \
-            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
-            $RSYNC_EXCLUDES \
-            --exclude ".git/" --exclude "node_modules/" \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            "${{ env.LOCAL_THEME_ROOT }}/" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/"
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      # ===== PLUGINS (NON-DESTRUCTIVE) =====
-      - name: Ensure remote plugins path exists
+      - name: Ensure remote dirs exist (no sudo)
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p '${{ env.REMOTE_PATH }}/wp-content/plugins'"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "set -e; mkdir -p '${{ env.REMOTE_PATH }}/wp-content/themes' '${{ env.REMOTE_PATH }}/wp-content/plugins'"
 
-      - name: Rsync PLUGINS (NO delete)
-        if: ${{ hashFiles(format('{0}/**', env.LOCAL_PLUGINS_ROOT)) != '' }}
-        run: |
-          set -euo pipefail
-          rsync -az \
-            --omit-dir-times --no-perms --no-owner --no-group \
-            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
-            --exclude ".git/" --exclude "node_modules/" \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            "${{ env.LOCAL_PLUGINS_ROOT }}/" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/"
-
-      # ===== PERMS + POST DEPLOY =====
-      - name: Fix permissions + post-deploy
-        run: |
-          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "set -e; cd '${{ env.WP_PATH }}'; \
-             sudo chown -R deployer:www-data wp-content/themes wp-content/plugins; \
-             sudo find wp-content/themes  -type d -exec chmod 2775 {} \; ; \
-             sudo find wp-content/themes  -type f -exec chmod 0664 {} \; ; \
-             sudo find wp-content/plugins -type d -exec chmod 2775 {} \; ; \
-             sudo find wp-content/plugins -type f -exec chmod 0664 {} \; ; \
-             wp maintenance-mode activate || true; \
-             wp cache flush || true; \
-             wp rewrite flush --hard || true; \
-             wp maintenance-mode deactivate || true"
-
-      - name: Smoke test
+      - name: Enable maintenance mode (optional)
         continue-on-error: true
         run: |
-          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qiE "critical error|fatal error" ) && echo "OK" || echo "Check site"
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode activate || true"
+
+      - name: Rsync THEMES
+        if: hashFiles('themes/**') != ''
+        run: |
+          set -e
+          RSYNC_EXCLUDES=""
+          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+          # Luôn exclude drop-in Redis nếu có
+          RSYNC_EXCLUDES="$RSYNC_EXCLUDES --exclude 'object-cache.php'"
+
+          rsync -az --delete \
+            --omit-dir-times --no-perms --no-owner --no-group \
+            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            $RSYNC_EXCLUDES \
+            themes/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/themes/
+
+      - name: Rsync PLUGINS
+        if: hashFiles('plugins/**') != ''
+        run: |
+          set -e
+          RSYNC_EXCLUDES=""
+          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
+          RSYNC_EXCLUDES="$RSYNC_EXCLUDES --exclude 'object-cache.php'"
+
+          rsync -az --delete \
+            --omit-dir-times --no-perms --no-owner --no-group \
+            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            $RSYNC_EXCLUDES \
+            plugins/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/
+
+      - name: Post-deploy flush
+        continue-on-error: true
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "set -e; cd '${{ env.WP_CLI_PATH }}'; wp cache flush || true; wp rewrite flush --hard || true"
+
+      - name: Disable maintenance mode
+        continue-on-error: true
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ env.WP_CLI_PATH }}' && wp maintenance-mode deactivate || true"
+
+      - name: Smoke test homepage
+        continue-on-error: true
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://beingblog.dpdns.org/ || true)
+          echo "HTTP Status: $STATUS"
+          curl -s https://beingblog.dpdns.org/ | ( ! grep -qi "critical error" ) && echo "No critical error string found" || echo "Possible critical error detected"

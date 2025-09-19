@@ -10,11 +10,11 @@ If you've got feedback or a feature suggestion for ACF, please use our [feedback
 
 ## Support
 
-This repository is not suitable for support. Please don't use our issue tracker for support requests, but for core issues only. 
+This repository is not suitable for support. Please don't use our issue tracker for support requests, but for core issues only.
 Support can take place in the appropriate channels:
 
-* Community forum
-* Email based ticket system 
+- Community forum
+- Email based ticket system
 
 These channels can be accessed from our [support website](https://support.advancedcustomfields.com/).
 

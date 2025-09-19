@@ -1,6 +1,5 @@
-/******/ "use strict";
+/******/ "use strict"; // ./js/src/lib/ajax-filter/index.js
 
-;// ./js/src/lib/ajax-filter/index.js
 /**
  * @package Polylang
  */
@@ -13,46 +12,47 @@
  * @param {Object} data The data to add.
  * @returns {void}
  */
-function ajaxFilter( data ) {
-	if ( 'undefined' === typeof jQuery || ! data ) {
-		return;
-	}
+function ajaxFilter(data) {
+  if ("undefined" === typeof jQuery || !data) {
+    return;
+  }
 
-	const dataStr = jQuery.param( data );
+  const dataStr = jQuery.param(data);
 
-	jQuery.ajaxPrefilter( function ( options ) {
-		if ( -1 === options.url.indexOf( ajaxurl ) && -1 === ajaxurl.indexOf( options.url ) ) {
-			return;
-		}
+  jQuery.ajaxPrefilter(function (options) {
+    if (
+      -1 === options.url.indexOf(ajaxurl) &&
+      -1 === ajaxurl.indexOf(options.url)
+    ) {
+      return;
+    }
 
-		if (
-			'undefined' === typeof options.data ||
-			null === options.data ||
-			'string' === typeof options.data && '' === options.data.trim()
-		) {
-			// An empty string or null/undefined.
-			options.data = dataStr;
-		} else if ( 'string' === typeof options.data ) {
-			// A non-empty string: can be a JSON string or a query string.
-			try {
-				options.data = JSON.stringify( Object.assign( JSON.parse( options.data ), data ) );
-			} catch ( exception ) {
-				// A non-empty non-JSON string is considered a query string.
-				options.data = `${ options.data }&${ dataStr }`;
-			}
-		} else if ( jQuery.isPlainObject( options.data ) ) {
-			// An object.
-			options.data = Object.assign( options.data, data );
-		}
-	} );
-}
+    if (
+      "undefined" === typeof options.data ||
+      null === options.data ||
+      ("string" === typeof options.data && "" === options.data.trim())
+    ) {
+      // An empty string or null/undefined.
+      options.data = dataStr;
+    } else if ("string" === typeof options.data) {
+      // A non-empty string: can be a JSON string or a query string.
+      try {
+        options.data = JSON.stringify(
+          Object.assign(JSON.parse(options.data), data),
+        );
+      } catch (exception) {
+        // A non-empty non-JSON string is considered a query string.
+        options.data = `${options.data}&${dataStr}`;
+      }
+    } else if (jQuery.isPlainObject(options.data)) {
+      // An object.
+      options.data = Object.assign(options.data, data);
+    }
+  });
+} // ./js/src/admin.js
 
-;// ./js/src/admin.js
 /**
  * @package Polylang
  */
 
-
-
-ajaxFilter( pll_admin?.ajax_filter );
-
+ajaxFilter(pll_admin?.ajax_filter);
