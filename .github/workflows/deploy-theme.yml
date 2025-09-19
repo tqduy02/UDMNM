@@ -1,11 +1,11 @@
-name: Deploy WordPress (themes + post-steps)
+name: Deploy WP (theme + self-heal)
 
 on:
   push:
     branches: [ "main" ]
     paths:
       - "wp-content/themes/**"
-      - ".github/workflows/deploy-wp.yml"
+      - ".github/workflows/deploy-theme.yml"
       - ".rsyncignore"
   workflow_dispatch: {}
 
@@ -25,9 +25,9 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # (Tuỳ chọn) Build assets trong theme nếu có package.json
+      # (optional) build assets nếu theme có package.json
       - name: Build theme assets (optional)
         if: hashFiles('wp-content/themes/**/package.json') != ''
         run: |
@@ -39,7 +39,7 @@ jobs:
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync repo (respect .rsyncignore)
+      - name: Rsync (tôn trọng .rsyncignore)
         run: |
           set -e
           RSYNC_EXCLUDES=""
@@ -48,40 +48,23 @@ jobs:
           rsync -az --delete \
             --omit-dir-times --no-perms --no-owner --no-group \
             --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            -e "ssh -p ${!GITHUB_ENV+}${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
             $RSYNC_EXCLUDES \
-            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/"
 
-      # (Tuỳ chọn) Nếu bạn có plugin tự viết TRONG repo và muốn deploy nó,
-      # thì thêm 1 bước rsync riêng cho đúng thư mục, KHÔNG --delete toàn wp-content/plugins:
-      # - name: Rsync custom plugin (optional)
-      #   run: |
-      #     rsync -az -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-      #       wp-content/plugins/my-plugin/ \
-      #       ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/wp-content/plugins/my-plugin/
-
-      - name: Post-deploy: self-heal (plugins/cache/permalinks)
+      - name: Post-deploy (plugins + cache + permalinks)
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            set -e
-            cd '${{ env.WP_PATH }}'
-            # Bật maintenance tạm (không bắt buộc)
-            wp maintenance-mode activate || true
-
-            # Đảm bảo 2 plugin cốt lõi tồn tại & active
-            wp plugin install redis-cache --activate || true
-            wp plugin install webp-converter-for-media --activate || true
-
-            # Bật drop-in Redis và dọn cache/link
-            wp redis enable || true
-            wp cache flush || true
-            wp rewrite flush --hard || true
-
-            # Tắt maintenance
-            wp maintenance-mode deactivate || true
-          "
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -e; cd '${{ env.WP_PATH }}'; \
+             wp maintenance-mode activate || true; \
+             wp plugin install redis-cache --activate || true; \
+             wp plugin install webp-converter-for-media --activate || true; \
+             wp redis enable || true; \
+             wp cache flush || true; \
+             wp rewrite flush --hard || true; \
+             wp maintenance-mode deactivate || true"
 
       - name: Smoke test
         continue-on-error: true
         run: |
-          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qi "critical error" ) && echo "OK" || (echo "Check site error"; exit 0)
+          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qi "critical error" ) && echo "OK" || echo "Check site"
