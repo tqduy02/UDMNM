@@ -1,20 +1,7 @@
-# Không đụng vào core
-wp-admin/
-wp-includes/
-# Giữ toàn bộ file core gốc
-wp-*.php
-index.php
-license.txt
-readme.html
-xmlrpc.php
-
-# Không ghi đè media
-wp-content/uploads/
-
-# Rác/tạm
+.git/
 node_modules/
-vendor/
+**/node_modules/
+*.map
 *.log
-*.tmp
 .DS_Store
 Thumbs.db
