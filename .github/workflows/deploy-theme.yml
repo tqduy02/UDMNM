@@ -1,4 +1,4 @@
-name: Deploy WP (theme + self-heal)
+name: Deploy Theme Only (safe)
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
     paths:
       - "wp-content/themes/**"
       - ".github/workflows/deploy-theme.yml"
-      - ".rsyncignore"
   workflow_dispatch: {}
 
 env:
   REMOTE_PATH: /var/www/wordpress
-  WP_PATH: /var/www/wordpress
+  THEME_DIR: mythemes                          # ⬅️ đổi nếu tên folder theme khác
+  THEME_PATH: /var/www/wordpress/wp-content/themes/${{ env.THEME_DIR }}
 
 jobs:
   deploy:
@@ -27,7 +27,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # (optional) build assets nếu theme có package.json
+      # (optional) Build assets nếu theme có package.json
       - name: Build theme assets (optional)
         if: hashFiles('wp-content/themes/**/package.json') != ''
         run: |
@@ -39,34 +39,26 @@ jobs:
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync (respect .rsyncignore)
-        run: |
-          set -e
-          RSYNC_EXCLUDES=""
-          if [ -f ".rsyncignore" ]; then
-            RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-          fi
-
-          rsync -az --delete \
-            --omit-dir-times --no-perms --no-owner --no-group \
-            --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            $RSYNC_EXCLUDES \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/"
-
-      - name: Post-deploy (plugins + cache + permalinks)
+      - name: Ensure remote theme dir exists
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "set -e; cd '${{ env.WP_PATH }}'; \
-             wp maintenance-mode activate || true; \
-             wp plugin install redis-cache --activate || true; \
-             wp plugin install webp-converter-for-media --activate || true; \
-             wp redis enable || true; \
-             wp cache flush || true; \
-             wp rewrite flush --hard || true; \
-             wp maintenance-mode deactivate || true"
+            "mkdir -p '${{ env.THEME_PATH }}'"
+
+      - name: Rsync theme (safe)
+        run: |
+          rsync -az --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            "wp-content/themes/${{ env.THEME_DIR }}/" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.THEME_PATH }}/"
+
+      - name: Post-deploy (flush cache & permalinks)
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "cd '${{ env.REMOTE_PATH }}' && \
+             wp cache flush || true && \
+             wp rewrite flush --hard || true"
 
       - name: Smoke test
         continue-on-error: true
         run: |
-          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qi "critical error" ) && echo "OK" || echo "Check site"
+          curl -fsS "https://${{ secrets.SITE_HOST }}/" >/dev/null && echo "OK" || echo "Check site manually"
