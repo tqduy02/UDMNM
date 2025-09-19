@@ -1,10 +1,15 @@
-node_modules/
-*.map
-*.log
-.DS_Store
+# Không bao giờ đè drop-in Redis
+wp-content/object-cache.php
 
-# BỎ uploads nếu không muốn ghi đè ảnh trên server
+# Không chạm media phía server
 wp-content/uploads/
 
+# Build/cache tạm
+**/node_modules/
+**/*.map
+**/*.log
+.DS_Store
+
+# Môi trường cục bộ
 *.env
 .env.*
