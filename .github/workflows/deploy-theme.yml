@@ -1,4 +1,4 @@
-name: Deploy WP (theme + self-heal)
+name: Deploy WP Theme (safe)
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
     paths:
       - "wp-content/themes/**"
       - ".github/workflows/deploy-theme.yml"
-      - ".rsyncignore"
   workflow_dispatch: {}
 
 env:
   REMOTE_PATH: /var/www/wordpress
   WP_PATH: /var/www/wordpress
+  THEME_DIR: wp-content/themes   # chỉ đồng bộ theme
 
 jobs:
   deploy:
@@ -27,7 +27,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # (optional) Build assets nếu có package.json trong theme
+      # (optional) build assets nếu theme có package.json
       - name: Build theme assets
         if: hashFiles('wp-content/themes/**/package.json') != ''
         run: |
@@ -39,28 +39,33 @@ jobs:
             (cd "$DIR" && npm ci || npm install && npm run build || true)
           done
 
-      - name: Rsync deploy
+      - name: Rsync theme only (SAFE)
         run: |
           set -e
-          RSYNC_EXCLUDES=""
-          [ -f ".rsyncignore" ] && RSYNC_EXCLUDES="--exclude-from=.rsyncignore"
-
           rsync -az --delete \
             --omit-dir-times --no-perms --no-owner --no-group \
             --chmod=Dug=rwx,Dog=rx,Fug=rw,Fog=r \
             -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            $RSYNC_EXCLUDES \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/"
+            "./${{ env.THEME_DIR }}/" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_PATH }}/${{ env.THEME_DIR }}/"
 
-      - name: Post-deploy (plugins + cache + permalinks)
+      - name: Fix permissions + post-deploy
         run: |
           ssh -p "${{ secrets.SSH_PORT }}" -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'EOF'
           set -e
           cd '${{ env.WP_PATH }}'
+          # sửa quyền theme
+          sudo chown -R deployer:www-data wp-content/themes
+          sudo find wp-content/themes -type d -exec chmod 2775 {} \;
+          sudo find wp-content/themes -type f -exec chmod 0664 {} \;
+
+          # self-heal: cài plugin tối thiểu (không bắt buộc)
           wp maintenance-mode activate || true
-          wp plugin install redis-cache --activate || true
           wp plugin install webp-converter-for-media --activate || true
-          wp redis enable || true
+          # Redis chỉ khi cần:
+          # wp plugin install redis-cache --activate || true
+          # wp redis enable || true
+
           wp cache flush || true
           wp rewrite flush --hard || true
           wp maintenance-mode deactivate || true
@@ -69,4 +74,4 @@ jobs:
       - name: Smoke test
         continue-on-error: true
         run: |
-          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qi "critical error" ) && echo "OK" || echo "Check site"
+          curl -sS https://${{ secrets.SITE_HOST }}/ | ( ! grep -qiE "critical error|fatal error" ) && echo "OK" || echo "Check site"
